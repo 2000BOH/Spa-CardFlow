@@ -34,9 +34,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const totalFilteredAmount = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="glass-card p-6 rounded-2xl mb-8">
+    <div className="glass-card p-6 rounded-2xl mb-8 mt-12 shadow-2xl">
       {/* 리스트 헤더 및 필터 바 */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10">
         <div>
           <h2 className="text-lg font-bold text-slate-100 flex items-center gap-3">
             <FileText className="w-6 h-6 text-cyan-400" />

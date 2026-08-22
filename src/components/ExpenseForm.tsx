@@ -80,31 +80,65 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setParseNotice(`" ${quickInput} " 문장에서 장소, 금액, 품목 정보가 파싱되어 아래 입력란에 채워졌습니다! 수정 후 저장하세요.`);
   };
 
-  // 2. 영수증 이미지 드래그/업로드 및 OCR 파싱 시뮬레이션
+  // 2. 영수증 이미지 압축 및 OCR 파싱 시뮬레이션
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setReceiptFile(file); // 업로드용 파일 상태 저장
-
+    // 이미지 압축 로직 (Canvas 이용)
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setReceiptImage(dataUrl);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const MAX_SIZE = 1200; // 해상도는 충분히 확인 가능하도록 1200px 제한
 
-      // OCR 파싱 시뮬레이션
-      const parsed = parseReceiptImageSimulation(file.name);
-      setStoreName(parsed.storeName);
-      setDate(parsed.date);
-      setTime(parsed.time);
-      setItems(parsed.items);
-      setQuantity(parsed.quantity);
-      setAmount(parsed.amount);
-      setCategory(parsed.category);
-      setPurpose(parsed.purpose);
-      setNote(parsed.note);
+        if (width > height) {
+          if (width > MAX_SIZE) {
+            height = Math.round((height * MAX_SIZE) / width);
+            width = MAX_SIZE;
+          }
+        } else {
+          if (height > MAX_SIZE) {
+            width = Math.round((width * MAX_SIZE) / height);
+            height = MAX_SIZE;
+          }
+        }
 
-      setParseNotice(`영수증 이미지(${file.name})를 읽고 지출 정보를 자동 추출했습니다! 입력란에서 자유롭게 수정할 수 있습니다.`);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // JPEG 85% 품질로 압축 (용량 감소하면서 화질 보존)
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setReceiptImage(compressedDataUrl);
+
+        // DataURL을 File 객체로 변환하여 Storage 업로드용으로 준비
+        fetch(compressedDataUrl)
+          .then((res) => res.blob())
+          .then((blob) => {
+            const compressedFile = new File([blob], `compressed_${file.name.replace(/\.[^/.]+$/, "")}.jpg`, { type: 'image/jpeg' });
+            setReceiptFile(compressedFile);
+          });
+
+        // OCR 파싱 시뮬레이션
+        const parsed = parseReceiptImageSimulation(file.name);
+        setStoreName(parsed.storeName);
+        setDate(parsed.date);
+        setTime(parsed.time);
+        setItems(parsed.items);
+        setQuantity(parsed.quantity);
+        setAmount(parsed.amount);
+        setCategory(parsed.category);
+        setPurpose(parsed.purpose);
+        setNote(parsed.note);
+        setParseNotice(`영수증 이미지를 자동 압축하여 업로드 준비를 마쳤습니다! 지출 정보가 추출되었습니다.`);
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -240,8 +274,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           onClick={() => fileInputRef.current?.click()}
         >
           {receiptImage ? (
-            <div className="relative w-full flex justify-center">
-              <img src={receiptImage} alt="영수증 미리보기" className="max-h-48 object-contain rounded-lg shadow-md" />
+            <div className="relative w-full flex justify-center bg-slate-950/20 p-2 rounded-xl">
+              <img src={receiptImage} alt="영수증 미리보기" className="max-h-56 object-contain rounded-lg shadow-md" />
               <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm">
                 <span className="text-white font-semibold flex items-center gap-2">
                   <RotateCcw className="w-4 h-4" /> 사진 다시 선택
@@ -399,7 +433,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
 
         {/* 폼 하단 저장 / 취소 버튼 */}
-        <div className="md:col-span-2 lg:col-span-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-4 pt-4 mt-4">
+        <div className="md:col-span-2 lg:col-span-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-6 pt-6 mt-8">
           {editingItem && (
             <button
               type="button"
