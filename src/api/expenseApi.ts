@@ -120,30 +120,39 @@ export async function deleteExpense(id: string): Promise<void> {
 
 /**
  * 5. 영수증 이미지 스토리지 업로드 (Storage)
- * Base64 형태이거나 Blob 형태인 파일을 Supabase Storage에 업로드하고 URL을 반환합니다.
+ * Supabase Storage에 업로드를 시도하고, 실패 시 null을 반환합니다.
+ * 
+ * [중요] Storage 버킷('receipts')이 Supabase에 생성되어 있지 않거나
+ * 권한(RLS Policy)이 설정되지 않은 경우 업로드가 실패합니다.
+ * 이 경우 호출자(ExpenseForm)에서 압축된 base64 DataURL을 DB에 직접 저장합니다.
  */
 export async function uploadReceiptImage(file: File): Promise<string | null> {
-  // 고유 파일명 생성
-  const fileExt = file.name.split('.').pop();
-  const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-  const filePath = `${fileName}`;
+  try {
+    // 고유 파일명 생성
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-  const { error } = await supabase.storage
-    .from('receipts')
-    .upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
+    const { error } = await supabase.storage
+      .from('receipts')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-  if (error) {
-    console.error('영수증 이미지 업로드 실패:', error);
+    if (error) {
+      console.warn('영수증 Storage 업로드 실패 (폴백: base64 저장):', error.message);
+      return null;
+    }
+
+    // 업로드 성공 시 public URL 가져오기
+    const { data: publicUrlData } = supabase.storage
+      .from('receipts')
+      .getPublicUrl(filePath);
+
+    return publicUrlData.publicUrl;
+  } catch (err) {
+    console.warn('영수증 Storage 연결 실패 (폴백: base64 저장):', err);
     return null;
   }
-
-  // 업로드 성공 시 public URL 가져오기
-  const { data: publicUrlData } = supabase.storage
-    .from('receipts')
-    .getPublicUrl(filePath);
-
-  return publicUrlData.publicUrl;
 }

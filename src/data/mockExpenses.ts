@@ -82,5 +82,5 @@ export const INITIAL_EXPENSES: ExpenseItem[] = [
   }
 ];
 
-export const INITIAL_MONTHLY_BUDGET = 3000000;
-export const PREV_MONTH_SPEND = 2150000;
+export const INITIAL_MONTHLY_BUDGET = 300000;
+export const PREV_MONTH_SPEND = 215000;
