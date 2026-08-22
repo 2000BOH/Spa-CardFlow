@@ -17,29 +17,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
 
   return (
     <div className="dashboard-grid">
-      {/* 1. 이번 달 결산 D-Day 카운트다운 */}
-      <div className="kpi-card glass-card">
-        <div className="kpi-header">
-          <div className="kpi-icon-wrapper bg-amber-500/20 text-amber-300">
-            <Clock className="w-6 h-6 animate-pulse" />
-          </div>
-          <span className="kpi-badge bg-amber-500/10 text-amber-300 border border-amber-500/30">
-            매월 15일 결산
-          </span>
-        </div>
-        <div className="kpi-body">
-          <div className="kpi-sublabel">15일 보고서 제출까지</div>
-          <div className="kpi-value text-amber-300">
-            D-{summary.daysUntilClosing} <span className="text-xl font-normal text-slate-300">일 남음</span>
-          </div>
-          <div className="kpi-footer-text">
-            <Calendar className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
-            다음 결산일: <strong>{summary.closingDateStr}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. 이번 달 누적 사용 금액 */}
+      {/* 1. 이번 달 누적 사용 금액 (총지출) */}
       <div className="kpi-card glass-card">
         <div className="kpi-header">
           <div className="kpi-icon-wrapper bg-cyan-500/20 text-cyan-300">
@@ -69,7 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
         </div>
       </div>
 
-      {/* 3. 이번 달 남은 금액 (잔여 예산) */}
+      {/* 2. 이번 달 남은 금액 (잔여 예산) */}
       <div className="kpi-card glass-card">
         <div className="kpi-header">
           <div className="kpi-icon-wrapper bg-emerald-500/20 text-emerald-300">
@@ -86,6 +64,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
           </div>
           <div className="kpi-footer-text">
             월 정액 한도 대비 투명 여유금
+          </div>
+        </div>
+      </div>
+
+      {/* 3. 이번 달 결산 D-Day 카운트다운 */}
+      <div className="kpi-card glass-card">
+        <div className="kpi-header">
+          <div className="kpi-icon-wrapper bg-amber-500/20 text-amber-300">
+            <Clock className="w-6 h-6 animate-pulse" />
+          </div>
+          <span className="kpi-badge bg-amber-500/10 text-amber-300 border border-amber-500/30">
+            매월 15일 결산
+          </span>
+        </div>
+        <div className="kpi-body">
+          <div className="kpi-sublabel">15일 보고서 제출까지</div>
+          <div className="kpi-value text-amber-300">
+            D-{summary.daysUntilClosing} <span className="text-xl font-normal text-slate-300">일 남음</span>
+          </div>
+          <div className="kpi-footer-text">
+            <Calendar className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
+            다음 결산일: <strong>{summary.closingDateStr}</strong>
           </div>
         </div>
       </div>
