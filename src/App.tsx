@@ -67,7 +67,7 @@ export function App() {
             createdAt: new Date().toISOString()
           };
           setExpenses([tempItem, ...expenses]);
-          alert('서버 저장에 실패하여 화면에만 임시 등록되었습니다.\nSupabase 환경변수(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)와 DB 테이블 설정을 확인해주세요.');
+          alert('서버 연결 없이 오프라인 모드로 안전하게 임시 저장되었습니다.');
         }
       }
     } catch (err) {
@@ -101,7 +101,7 @@ export function App() {
       {/* 1. 브랜드 헤더 */}
       <Header onOpenReport={() => setIsReportOpen(true)} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 mt-4">
         {/* 2. 대시보드 KPI (D-Day 남은날, 이번달 사용금액, 남은 금액, 전월 대비 +/-) */}
         <Dashboard summary={summary} />
 

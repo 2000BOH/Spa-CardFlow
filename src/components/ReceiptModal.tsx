@@ -31,8 +31,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </button>
         </div>
 
-        <div className="w-full flex justify-center bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3 max-h-[40vh] overflow-auto">
-          <img src={imageUrl} alt={title} className="w-full h-auto rounded-lg object-contain" />
+        <div className="w-full flex justify-center bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3 max-h-[25vh] overflow-hidden">
+          <img src={imageUrl} alt={title} className="max-w-[70%] h-auto rounded-lg object-contain" />
         </div>
 
         <div className="flex justify-end w-full">

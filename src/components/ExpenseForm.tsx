@@ -290,7 +290,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               <img
                 src={receiptImage}
                 alt="영수증"
-                className="max-h-16 object-contain rounded mb-1"
+                className="max-h-12 max-w-[80%] object-contain rounded mb-1"
               />
               <span className="text-[10px] text-emerald-300 font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" /> 첨부됨
