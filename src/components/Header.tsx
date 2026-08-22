@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenReport }) => {
 
           <button 
             onClick={onOpenReport}
-            className="btn-primary report-btn shadow-glow"
+            className="btn-primary report-btn shadow-glow hidden md:inline-flex"
           >
             <FileText className="w-5 h-5" />
             <span>상급자 결산 보고서 생성</span>

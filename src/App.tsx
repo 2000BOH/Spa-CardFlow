@@ -7,7 +7,7 @@ import { ExpenseForm } from './components/ExpenseForm';
 import { ExpenseList } from './components/ExpenseList';
 import { ReportModal } from './components/ReportModal';
 import { ReceiptModal } from './components/ReceiptModal';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, FileText } from 'lucide-react';
 
 export function App() {
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
@@ -110,6 +110,15 @@ export function App() {
           매월 15일 결산 기준 | 상급자 보고서 PDF/JPG 자동 생성 지원
         </div>
       </footer>
+
+      {/* 모바일 전용 플로팅 액션 버튼 (상급자 결산 보고서) */}
+      <button
+        onClick={() => setIsReportOpen(true)}
+        className="fab-button btn-primary shadow-glow md:hidden"
+        aria-label="보고서 생성"
+      >
+        <FileText className="w-6 h-6" />
+      </button>
 
       {/* 5. 상급자 보고서 모달 */}
       <ReportModal

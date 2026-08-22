@@ -376,12 +376,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
 
         {/* 폼 하단 저장 / 취소 버튼 */}
-        <div className="md:col-span-2 lg:col-span-4 flex items-center justify-end gap-3 pt-3 border-t border-slate-700/50 mt-2">
+        <div className="md:col-span-2 lg:col-span-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-slate-700/50 mt-2">
           {editingItem && (
             <button
               type="button"
               onClick={onCancelEdit}
-              className="btn-secondary"
+              className="btn-secondary w-full sm:w-auto justify-center"
             >
               수정 취소
             </button>
@@ -389,7 +389,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <button
             type="button"
             onClick={resetForm}
-            className="btn-secondary text-slate-400 hover:text-slate-200"
+            className="btn-secondary w-full sm:w-auto justify-center text-slate-400 hover:text-slate-200"
           >
             <RotateCcw className="w-4 h-4 mr-1" />
             폼 초기화
@@ -397,7 +397,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
           <button
             type="submit"
-            className="btn-primary shadow-glow px-6 py-2.5 font-bold"
+            className="btn-primary w-full sm:w-auto justify-center shadow-glow px-6 py-3 sm:py-2.5 font-bold"
           >
             <Save className="w-4 h-4 mr-1.5" />
             {editingItem ? '수정사항 저장' : '법인카드 내역 저장하기'}

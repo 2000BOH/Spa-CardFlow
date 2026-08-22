@@ -79,107 +79,75 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       </div>
 
-      {/* 리스트 테이블 */}
+      {/* 리스트 카드 뷰 (모바일 친화적) */}
       {filteredExpenses.length === 0 ? (
         <div className="py-12 text-center text-slate-400">
           <p className="text-sm">조회된 지출 내역이 없습니다.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-700/80 text-xs font-semibold text-cyan-300 uppercase tracking-wider bg-slate-900/40">
-                <th className="p-3">일시</th>
-                <th className="p-3">장소(상호)</th>
-                <th className="p-3">품목명 / 수량</th>
-                <th className="p-3">카테고리</th>
-                <th className="p-3">사용 목적 (내용)</th>
-                <th className="p-3 text-right">사용 금액</th>
-                <th className="p-3 text-center">영수증</th>
-                <th className="p-3 text-center">관리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs text-slate-200">
-              {filteredExpenses.map((item) => (
-                <tr key={item.id} className="hover:bg-cyan-950/20 transition-colors">
-                  {/* 일시 */}
-                  <td className="p-3 whitespace-nowrap text-slate-300">
-                    <div className="font-semibold text-slate-200">{item.date}</div>
-                    <div className="text-[11px] text-slate-400">{item.time}</div>
-                  </td>
+        <div className="flex flex-col gap-3">
+          {filteredExpenses.map((item) => (
+            <div key={item.id} className="bg-slate-900/50 border border-slate-700/60 rounded-xl p-4 flex flex-col gap-3 hover:bg-slate-800/50 transition-colors">
+              
+              {/* 카드 상단: 날짜, 카테고리, 관리버튼 */}
+              <div className="flex justify-between items-center border-b border-slate-700/50 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-300">{item.date} {item.time}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                    {item.category}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => onEditExpense(item)}
+                    className="p-1.5 rounded text-slate-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 transition-colors"
+                    title="내역 수정"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`'${item.storeName}' 지출 항목을 삭제하시겠습니까?`)) {
+                        onDeleteExpense(item.id);
+                      }
+                    }}
+                    className="p-1.5 rounded text-slate-400 hover:text-rose-400 bg-slate-800 hover:bg-slate-700 transition-colors"
+                    title="내역 삭제"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
 
-                  {/* 장소 */}
-                  <td className="p-3 whitespace-nowrap">
-                    <span className="font-bold text-slate-100">{item.storeName}</span>
-                  </td>
-
-                  {/* 품목 / 수량 */}
-                  <td className="p-3 max-w-[180px] truncate">
-                    <div className="text-slate-200 font-medium">{item.items}</div>
-                    <div className="text-[11px] text-slate-400">수량: {item.quantity}개</div>
-                  </td>
-
-                  {/* 카테고리 배지 */}
-                  <td className="p-3 whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                      {item.category}
-                    </span>
-                  </td>
-
-                  {/* 사용 목적 */}
-                  <td className="p-3 max-w-[240px]">
-                    <p className="line-clamp-2 text-slate-300">{item.purpose}</p>
-                    {item.note && <span className="text-[10px] text-amber-300/80 block mt-0.5">※ {item.note}</span>}
-                  </td>
-
-                  {/* 금액 */}
-                  <td className="p-3 text-right whitespace-nowrap font-bold text-cyan-200 text-sm">
+              {/* 카드 본문: 장소, 사용 목적, 품목 */}
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex flex-col gap-1 flex-1">
+                  <div className="font-bold text-slate-100 text-sm">{item.storeName}</div>
+                  <div className="text-xs text-slate-300 line-clamp-2">{item.purpose}</div>
+                  <div className="text-[11px] text-slate-400">품목: {item.items} ({item.quantity}개)</div>
+                  {item.note && <div className="text-[10px] text-amber-300/80 mt-0.5">※ {item.note}</div>}
+                </div>
+                
+                {/* 우측: 금액 및 영수증 */}
+                <div className="flex flex-col items-end justify-between gap-2 h-full min-w-[90px]">
+                  <div className="font-bold text-cyan-200 text-lg whitespace-nowrap">
                     ₩{item.amount.toLocaleString()}
-                  </td>
-
-                  {/* 영수증 이미지 미리보기 */}
-                  <td className="p-3 text-center whitespace-nowrap">
-                    {item.receiptImage ? (
-                      <button
-                        onClick={() => onViewReceipt(item.receiptImage!, `${item.storeName} 영수증`)}
-                        className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 transition-colors inline-flex items-center gap-1 text-[11px]"
-                        title="영수증 원본 보기"
-                      >
-                        <Image className="w-3.5 h-3.5" />
-                        <span>보기</span>
-                      </button>
-                    ) : (
-                      <span className="text-slate-500 text-[11px]">미첨부</span>
-                    )}
-                  </td>
-
-                  {/* 관리 버튼 (수정/삭제) */}
-                  <td className="p-3 text-center whitespace-nowrap">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => onEditExpense(item)}
-                        className="p-1.5 rounded text-slate-400 hover:text-cyan-300 hover:bg-slate-800 transition-colors"
-                        title="내역 수정"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`'${item.storeName}' 지출 항목을 삭제하시겠습니까?`)) {
-                            onDeleteExpense(item.id);
-                          }
-                        }}
-                        className="p-1.5 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
-                        title="내역 삭제"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  {item.receiptImage ? (
+                    <button
+                      onClick={() => onViewReceipt(item.receiptImage!, `${item.storeName} 영수증`)}
+                      className="px-2 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 transition-colors inline-flex items-center justify-center gap-1 text-[11px] w-full mt-1"
+                    >
+                      <Image className="w-3.5 h-3.5" />
+                      <span>보기</span>
+                    </button>
+                  ) : (
+                    <span className="text-slate-500 text-[11px] px-2 py-1.5 border border-slate-700/50 rounded-lg bg-slate-800/30 text-center w-full mt-1">미첨부</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
