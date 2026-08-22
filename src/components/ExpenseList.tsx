@@ -34,11 +34,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const totalFilteredAmount = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="glass-card p-4 rounded-2xl mb-8 mt-6">
+    <div className="glass-card p-4 rounded-2xl mb-8 mt-16">
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-cyan-400" />
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-base font-bold text-slate-100 flex items-center gap-3">
+          <FileText className="w-5 h-5 text-cyan-400" />
           결제 명세 ({filteredExpenses.length}건)
         </h2>
         <span className="text-sm text-cyan-300 font-extrabold">
@@ -47,23 +47,23 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       </div>
 
       {/* 검색 & 카테고리 필터 - 2열 */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="relative">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="검색..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field pl-8 py-2 text-xs w-full"
+            className="input-field pl-10 py-2.5 text-xs w-full"
           />
         </div>
         <div className="relative">
-          <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <Filter className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="input-field pl-8 py-2 text-xs bg-slate-900 text-slate-200 w-full"
+            className="input-field pl-10 py-2.5 text-xs bg-slate-900 text-slate-200 w-full"
           >
             <option value="ALL">전체</option>
             <option value="시설/건재/자재">시설/건재</option>
