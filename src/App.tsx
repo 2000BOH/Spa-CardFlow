@@ -26,8 +26,6 @@ export function App() {
     title: ''
   });
 
-  const [isLoading, setIsLoading] = useState(true);
-
   // 1. 초기 데이터 마운트 (Supabase Fetch)
   useEffect(() => {
     async function loadData() {
@@ -36,8 +34,6 @@ export function App() {
         setExpenses(data);
       } catch (err) {
         console.error('Failed to load data:', err);
-      } finally {
-        setIsLoading(false);
       }
     }
     loadData();

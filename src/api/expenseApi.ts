@@ -128,7 +128,7 @@ export async function uploadReceiptImage(file: File): Promise<string | null> {
   const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
   const filePath = `${fileName}`;
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('receipts')
     .upload(filePath, file, {
       cacheControl: '3600',
