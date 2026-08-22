@@ -399,12 +399,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
 
         {/* 폼 하단 저장 / 취소 버튼 */}
-        <div className="md:col-span-2 lg:col-span-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-3 pt-3 border-t border-slate-700/50 mt-2">
+        <div className="md:col-span-2 lg:col-span-4 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-4 pt-4 mt-4">
           {editingItem && (
             <button
               type="button"
               onClick={onCancelEdit}
-              className="btn-secondary w-full sm:w-auto justify-center"
+              className="btn-secondary px-5 py-2.5 rounded-full justify-center text-sm font-semibold"
             >
               수정 취소
             </button>
@@ -412,19 +412,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <button
             type="button"
             onClick={resetForm}
-            className="btn-secondary w-full sm:w-auto justify-center text-slate-400 hover:text-slate-200"
+            className="btn-secondary px-5 py-2.5 rounded-full justify-center text-slate-400 hover:text-slate-200 text-sm font-semibold"
           >
-            <RotateCcw className="w-4 h-4 mr-1" />
+            <RotateCcw className="w-4 h-4 mr-2" />
             폼 초기화
           </button>
 
           <button
             type="submit"
             disabled={isUploading}
-            className={`btn-primary w-full sm:w-auto justify-center shadow-glow px-6 py-3 sm:py-2.5 font-bold ${isUploading ? 'opacity-70 cursor-wait' : ''}`}
+            className={`btn-primary shadow-glow px-8 py-3 rounded-full justify-center text-sm font-bold ${isUploading ? 'opacity-70 cursor-wait' : ''}`}
           >
-            <Save className="w-4 h-4 mr-1.5" />
-            {isUploading ? '업로드 중...' : (editingItem ? '수정사항 저장' : '법인카드 내역 저장하기')}
+            <Save className="w-4 h-4 mr-2" />
+            {isUploading ? '업로드 중...' : (editingItem ? '수정사항 저장' : '법인카드 내역 저장')}
           </button>
         </div>
       </form>

@@ -36,10 +36,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   return (
     <div className="glass-card p-6 rounded-2xl mb-8">
       {/* 리스트 헤더 및 필터 바 */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
         <div>
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-3">
+            <FileText className="w-6 h-6 text-cyan-400" />
             이번 달 법인카드 결제 명세 ({filteredExpenses.length}건)
           </h2>
         </div>
@@ -148,10 +148,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       )}
 
-      {/* 실시간 지출 합계 하단바 */}
-      <div className="mt-4 pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs font-semibold text-slate-300">
+      {/* 실시간 지출 합계 하단바 (구분선 제거) */}
+      <div className="mt-8 flex items-center justify-between text-xs font-semibold text-slate-300 bg-slate-900/40 p-4 rounded-xl">
         <span>선택 조건 지출 합계</span>
-        <span className="text-base text-cyan-300 font-extrabold">
+        <span className="text-lg text-cyan-300 font-extrabold">
           ₩{totalFilteredAmount.toLocaleString()}
         </span>
       </div>
