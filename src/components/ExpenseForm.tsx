@@ -191,18 +191,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       </div>
 
       {/* 스마트 텍스트 파싱 입력 바 */}
-      <div className="quick-input-box mb-6 bg-slate-900/60 p-4 rounded-xl border border-cyan-500/30">
-        <label className="block text-xs font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          빠른 자동 입력 (예: 강원건재 15만원)
+      <div className="relative mb-8 bg-gradient-to-br from-slate-800/80 to-slate-900/90 p-5 rounded-2xl border border-slate-700/50 shadow-lg backdrop-blur-sm">
+        <label className="text-[11px] uppercase tracking-wider font-bold text-amber-400/90 mb-3 flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5" />
+          빠른 자동 파싱 (입력만 하면 폼이 채워집니다)
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
-            className="input-field flex-1"
-            placeholder="예: 강원건재 15만원 샤워실 자재 구매"
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
+            placeholder="예: 강원건재 15만원 샤워실 자재"
+            className="input-field flex-1 bg-slate-950/50 border-slate-700 focus:border-amber-500/50 focus:ring-amber-500/20 text-sm"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
@@ -213,16 +213,17 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <button
             type="button"
             onClick={() => handleQuickTextParse()}
-            className="btn-secondary whitespace-nowrap bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border-cyan-500/40"
+            disabled={!quickInput.trim()}
+            className="btn-primary bg-gradient-to-r from-amber-500/80 to-rose-500/80 hover:from-amber-500 hover:to-rose-500 border-none shadow-glow text-white px-5 py-2.5 rounded-xl disabled:opacity-50 font-semibold"
           >
-            <Sparkles className="w-4 h-4 text-amber-300 mr-1" />
-            자동 파싱 적용
+            <Sparkles className="w-4 h-4 mr-1.5" />
+            적용
           </button>
         </div>
       </div>
 
       {/* 영수증 드래그 & 업로드 영역 */}
-      <div className="receipt-upload-area mb-6">
+      <div className="mb-8">
         <input
           type="file"
           accept="image/*"
@@ -231,19 +232,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           className="hidden"
         />
         <div
+          className={`relative group border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-300 overflow-hidden ${
+            receiptImage
+              ? 'border-emerald-500/50 bg-emerald-500/5'
+              : 'border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-cyan-500/50'
+          }`}
           onClick={() => fileInputRef.current?.click()}
-          className="upload-dropzone group border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-slate-900/40 hover:bg-cyan-950/20 p-5 rounded-xl cursor-pointer transition-all flex flex-col items-center justify-center gap-2"
         >
           {receiptImage ? (
-            <div className="flex items-center gap-4 w-full justify-between px-2">
-              <div className="flex items-center gap-3">
-                <img src={receiptImage} alt="영수증 미리보기" className="w-14 h-14 object-cover rounded-lg border border-cyan-400/50 shadow" />
-                <div>
-                  <div className="text-sm font-semibold text-cyan-300 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 영수증 이미지 스캔 완료
-                  </div>
-                  <div className="text-xs text-slate-400">이미지가 첨부되었습니다. 클릭하여 변경</div>
-                </div>
+            <div className="relative w-full flex justify-center">
+              <img src={receiptImage} alt="영수증 미리보기" className="max-h-48 object-contain rounded-lg shadow-md" />
+              <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm">
+                <span className="text-white font-semibold flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4" /> 사진 다시 선택
+                </span>
               </div>
               <button
                 type="button"
@@ -251,18 +253,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                   e.stopPropagation();
                   setReceiptImage('');
                 }}
-                className="text-xs text-rose-400 hover:underline"
+                className="absolute top-2 right-2 bg-rose-500/80 hover:bg-rose-500 text-white text-xs px-2 py-1 rounded shadow-md z-10"
               >
-                이미지 삭제
+                삭제
               </button>
             </div>
           ) : (
             <>
-              <div className="p-3 bg-cyan-500/10 text-cyan-300 rounded-full group-hover:scale-110 transition-transform">
-                <Upload className="w-6 h-6" />
+              <div className="w-14 h-14 bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Upload className="w-7 h-7 text-cyan-400" />
               </div>
               <div className="text-center">
-                <span className="text-sm font-semibold text-slate-200">영수증 업로드</span>
+                <span className="text-sm font-bold text-slate-300">영수증 이미지 업로드</span>
+                <p className="text-xs text-slate-500 mt-1.5 hidden sm:block">클릭하거나 사진을 촬영하세요</p>
               </div>
             </>
           )}
