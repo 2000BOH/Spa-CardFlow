@@ -391,7 +391,7 @@ body {
   position: fixed;
   bottom: 1.5rem;
   right: 1.5rem;
-  z-index: 50;
+  z-index: 9999;
   border-radius: 9999px;
   padding: 1rem;
   box-shadow: 0 10px 25px -5px rgba(6, 182, 212, 0.6);

@@ -117,13 +117,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setReceiptImage(compressedDataUrl);
 
-        // DataURL을 File 객체로 변환하여 Storage 업로드용으로 준비
-        fetch(compressedDataUrl)
-          .then((res) => res.blob())
-          .then((blob) => {
-            const compressedFile = new File([blob], `compressed_${file.name.replace(/\.[^/.]+$/, "")}.jpg`, { type: 'image/jpeg' });
-            setReceiptFile(compressedFile);
-          });
+        // 모바일 호환성을 위해 fetch 대신 수동으로 base64 변환 후 Blob 추출
+        const byteString = atob(compressedDataUrl.split(',')[1]);
+        const mimeString = compressedDataUrl.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mimeString });
+        
+        const compressedFile = new File([blob], `compressed_${file.name.replace(/\.[^/.]+$/, "")}.jpg`, { type: 'image/jpeg' });
+        setReceiptFile(compressedFile);
 
         // OCR 파싱 시뮬레이션
         const parsed = parseReceiptImageSimulation(file.name);
@@ -230,7 +235,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           <Sparkles className="w-3.5 h-3.5" />
           빠른 자동 파싱 (입력만 하면 폼이 채워집니다)
         </label>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-row items-center gap-2">
           <input
             type="text"
             value={quickInput}
@@ -248,7 +253,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
             type="button"
             onClick={() => handleQuickTextParse()}
             disabled={!quickInput.trim()}
-            className="btn-primary bg-gradient-to-r from-amber-500/80 to-rose-500/80 hover:from-amber-500 hover:to-rose-500 border-none shadow-glow text-white px-5 py-2.5 rounded-xl disabled:opacity-50 font-semibold"
+            className="btn-primary bg-gradient-to-r from-amber-500/80 to-rose-500/80 hover:from-amber-500 hover:to-rose-500 border-none shadow-glow text-white px-4 py-2.5 rounded-xl disabled:opacity-50 font-semibold shrink-0"
           >
             <Sparkles className="w-4 h-4 mr-1.5" />
             적용
@@ -275,7 +280,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         >
           {receiptImage ? (
             <div className="relative w-full flex justify-center bg-slate-950/20 p-2 rounded-xl">
-              <img src={receiptImage} alt="영수증 미리보기" className="max-h-56 object-contain rounded-lg shadow-md" />
+              <img src={receiptImage} alt="영수증 미리보기" className="max-h-24 object-contain rounded-lg shadow-md" />
               <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm">
                 <span className="text-white font-semibold flex items-center gap-2">
                   <RotateCcw className="w-4 h-4" /> 사진 다시 선택
