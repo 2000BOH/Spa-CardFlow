@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { ExpenseItem } from './types/expense';
-import { getStoredExpenses, saveExpenses, calculateBudgetSummary } from './utils/storage';
+import { calculateBudgetSummary } from './utils/storage';
+import { fetchExpenses, createExpense, updateExpense, deleteExpense } from './api/expenseApi';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
@@ -25,45 +26,58 @@ export function App() {
     title: ''
   });
 
-  // 1. 초기 데이터 마운트
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 1. 초기 데이터 마운트 (Supabase Fetch)
   useEffect(() => {
-    const loaded = getStoredExpenses();
-    setExpenses(loaded);
+    async function loadData() {
+      try {
+        const data = await fetchExpenses();
+        setExpenses(data);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
   // 2. 대시보드 요약 통계 실시간 산출
   const summary = calculateBudgetSummary(expenses);
 
   // 3. 지출 항목 신규 저장 및 수정
-  const handleSaveExpense = (itemData: Omit<ExpenseItem, 'id' | 'createdAt'>) => {
-    if (editingItem) {
-      // 수정 모드
-      const updated = expenses.map((item) =>
-        item.id === editingItem.id
-          ? { ...item, ...itemData }
-          : item
-      );
-      setExpenses(updated);
-      saveExpenses(updated);
-      setEditingItem(null);
-    } else {
-      // 신규 추가 모드
-      const newItem: ExpenseItem = {
-        ...itemData,
-        id: `exp-${Date.now()}`,
-        createdAt: new Date().toISOString()
-      };
-      const updated = [newItem, ...expenses];
-      setExpenses(updated);
-      saveExpenses(updated);
+  const handleSaveExpense = async (itemData: Omit<ExpenseItem, 'id' | 'createdAt'>) => {
+    try {
+      if (editingItem) {
+        // 수정 모드
+        await updateExpense(editingItem.id, itemData);
+        // 상태 갱신
+        const updated = expenses.map((item) =>
+          item.id === editingItem.id ? { ...item, ...itemData } : item
+        );
+        setExpenses(updated);
+        setEditingItem(null);
+      } else {
+        // 신규 추가 모드
+        const newItem = await createExpense(itemData);
+        setExpenses([newItem, ...expenses]);
+      }
+    } catch (err) {
+      console.error('Save failed:', err);
+      alert('저장에 실패했습니다.');
     }
   };
 
   // 4. 삭제 처리
-  const handleDeleteExpense = (id: string) => {
-    const updated = expenses.filter((item) => item.id !== id);
-    setExpenses(updated);
-    saveExpenses(updated);
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      await deleteExpense(id);
+      setExpenses(expenses.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('삭제에 실패했습니다.');
+    }
   };
 
   // 5. 영수증 원본 보기

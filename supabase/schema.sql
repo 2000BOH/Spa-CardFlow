@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     category TEXT NOT NULL,            -- 카테고리 (시설/건재/자재, 스파/비품/소모품 등)
     purpose TEXT NOT NULL,             -- 사용 내용 및 상세 목적
     note TEXT,                         -- 비고
-    receipt_url TEXT,                  -- 영수증 이미지 Storage URL
+    receipt_image_url TEXT,            -- 영수증 이미지 Storage URL
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -31,3 +31,11 @@ ALTER TABLE public.monthly_budgets ENABLE ROW LEVEL SECURITY;
 -- 4. 누구나 읽기/쓰기 가능 정책 (초기 테스트용)
 CREATE POLICY "Allow public read and write access" ON public.expenses FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public budget access" ON public.monthly_budgets FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. Storage (영수증 이미지) 설정
+-- 'receipts' 라는 퍼블릭 버킷 생성
+INSERT INTO storage.buckets (id, name, public) VALUES ('receipts', 'receipts', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS 및 전체 허용 정책 (초기 테스트용)
+CREATE POLICY "Public Access" ON storage.objects FOR ALL USING (bucket_id = 'receipts');

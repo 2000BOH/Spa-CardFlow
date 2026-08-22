@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ExpenseCategory, ExpenseItem } from '../types/expense';
 import { parseQuickText, parseReceiptImageSimulation } from '../utils/ocrParser';
+import { uploadReceiptImage } from '../api/expenseApi';
 import { Camera, Sparkles, Save, RotateCcw, Upload, CheckCircle2 } from 'lucide-react';
 
 interface ExpenseFormProps {
@@ -36,9 +37,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [category, setCategory] = useState<ExpenseCategory>('시설/건재/자재');
   const [purpose, setPurpose] = useState('');
   const [note, setNote] = useState('');
-  const [receiptImage, setReceiptImage] = useState<string>('');
+  const [receiptImage, setReceiptImage] = useState<string>(''); // 기존 URL 또는 Base64 미리보기
+  const [receiptFile, setReceiptFile] = useState<File | null>(null); // 실제 업로드할 파일
 
   const [parseNotice, setParseNotice] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 수정 모드인 경우 데이터 로드
@@ -82,6 +85,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setReceiptFile(file); // 업로드용 파일 상태 저장
+
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -117,11 +122,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setPurpose('');
     setNote('');
     setReceiptImage('');
+    setReceiptFile(null);
     setParseNotice(null);
   };
 
   // 4. 저장하기 처리
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!storeName.trim()) {
@@ -133,21 +139,39 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       return;
     }
 
-    onSaveExpense({
-      storeName: storeName.trim(),
-      date,
-      time,
-      items: items.trim() || `${storeName} 결제 내역`,
-      quantity: Number(quantity) || 1,
-      amount: Number(amount),
-      category,
-      purpose: purpose.trim() || '법인카드 사용 목적 기입',
-      note: note.trim(),
-      receiptImage: receiptImage || undefined
-    });
+    setIsUploading(true);
+    try {
+      let finalImageUrl = receiptImage;
+      
+      // 새로 등록한 파일이 있다면 Supabase Storage에 업로드
+      if (receiptFile) {
+        const uploadedUrl = await uploadReceiptImage(receiptFile);
+        if (uploadedUrl) {
+          finalImageUrl = uploadedUrl;
+        }
+      }
 
-    resetForm();
-    if (onCancelEdit) onCancelEdit();
+      onSaveExpense({
+        storeName: storeName.trim(),
+        date,
+        time,
+        items: items.trim() || `${storeName} 결제 내역`,
+        quantity: Number(quantity) || 1,
+        amount: Number(amount),
+        category,
+        purpose: purpose.trim() || '법인카드 사용 목적 기입',
+        note: note.trim(),
+        receiptImage: finalImageUrl || undefined
+      });
+
+      resetForm();
+      if (onCancelEdit) onCancelEdit();
+    } catch (err) {
+      console.error(err);
+      alert('저장 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -397,10 +421,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
           <button
             type="submit"
-            className="btn-primary w-full sm:w-auto justify-center shadow-glow px-6 py-3 sm:py-2.5 font-bold"
+            disabled={isUploading}
+            className={`btn-primary w-full sm:w-auto justify-center shadow-glow px-6 py-3 sm:py-2.5 font-bold ${isUploading ? 'opacity-70 cursor-wait' : ''}`}
           >
             <Save className="w-4 h-4 mr-1.5" />
-            {editingItem ? '수정사항 저장' : '법인카드 내역 저장하기'}
+            {isUploading ? '업로드 중...' : (editingItem ? '수정사항 저장' : '법인카드 내역 저장하기')}
           </button>
         </div>
       </form>
