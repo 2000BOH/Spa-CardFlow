@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenReport }) => {
       <div className="header-subbar">
         <div className="flex items-center gap-2 text-xs text-cyan-200">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>매월 15일 정기 상급자 결산 보고 준수 / 실시간 영수증 데이터 검증</span>
+          <span>지출 결산 시스템</span>
         </div>
         <div className="text-xs text-slate-300">
           오늘 기준: <strong className="text-cyan-300">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</strong>

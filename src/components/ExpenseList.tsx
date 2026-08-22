@@ -36,15 +36,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   return (
     <div className="glass-card p-6 rounded-2xl mb-8">
       {/* 리스트 헤더 및 필터 바 */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-700/60 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
             <FileText className="w-5 h-5 text-cyan-400" />
             이번 달 법인카드 결제 명세 ({filteredExpenses.length}건)
-          </h3>
-          <p className="text-xs text-slate-400">
-            입력된 모든 지출 내역을 확인하고 수정하거나 영수증 증빙을 검토할 수 있습니다.
-          </p>
+          </h2>
         </div>
 
         {/* 검색 & 카테고리 필터 */}

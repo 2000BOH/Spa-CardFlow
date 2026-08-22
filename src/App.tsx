@@ -111,13 +111,10 @@ export function App() {
       </main>
 
       {/* 푸터 */}
-      <footer className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 pt-8 border-t border-slate-800/80 mt-12 flex flex-col sm:flex-row justify-between items-center gap-2">
+      <footer className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 pt-8 border-t border-slate-800/80 mt-12 flex flex-col sm:flex-row justify-center items-center gap-2">
         <div className="flex items-center gap-1.5 text-slate-400">
           <ShieldCheck className="w-4 h-4 text-cyan-400" />
-          <span>블루오션 웰니스 스파 (Blue Ocean Wellness Spa) 법인 지출 정산 시스템</span>
-        </div>
-        <div>
-          매월 15일 결산 기준 | 상급자 보고서 PDF/JPG 자동 생성 지원
+          <span>Spa CardFlow v1.0</span>
         </div>
       </footer>
 

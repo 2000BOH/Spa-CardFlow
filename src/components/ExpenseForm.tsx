@@ -183,12 +183,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              법인카드 사용 내역 입력 & 영수증 스마트 스캔
+              결제 내역 등록
               {editingItem && <span className="px-2 py-0.5 text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">수정 중</span>}
             </h2>
-            <p className="text-xs text-slate-400">
-              사진을 올리거나 간단히 작성(예: 강원건재 15만원)하면 파싱되며, 활성화된 입력란에서 직접 추가/수정 후 저장할 수 있습니다.
-            </p>
           </div>
         </div>
       </div>
@@ -197,7 +194,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       <div className="quick-input-box mb-6 bg-slate-900/60 p-4 rounded-xl border border-cyan-500/30">
         <label className="block text-xs font-semibold text-cyan-300 mb-1 flex items-center gap-1.5">
           <Sparkles className="w-4 h-4 text-amber-300" />
-          간단한 내용 입력 파싱 (예: 강원건재 15만원, 스타벅스 28,000원 아메리카노 4잔)
+          빠른 자동 입력 (예: 강원건재 15만원)
         </label>
         <div className="flex gap-2">
           <input
@@ -265,8 +262,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 <Upload className="w-6 h-6" />
               </div>
               <div className="text-center">
-                <span className="text-sm font-semibold text-slate-200">영수증 사진을 선택하거나 이 곳으로 드래그하세요</span>
-                <p className="text-xs text-slate-400 mt-0.5">스마트 OCR이 장소, 날짜, 금액, 품목을 자동으로 감지합니다.</p>
+                <span className="text-sm font-semibold text-slate-200">영수증 업로드</span>
               </div>
             </>
           )}
