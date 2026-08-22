@@ -17,8 +17,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
-      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-lg w-full p-5 shadow-2xl flex flex-col items-center">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-sm p-4 shadow-2xl flex flex-col items-center">
         <div className="flex justify-between items-center w-full pb-3 border-b border-slate-700/60 mb-4">
           <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
             🧾 {title || '영수증 원본'}
@@ -31,8 +31,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </button>
         </div>
 
-        <div className="w-full flex justify-center bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4 max-h-[60vh] overflow-auto">
-          <img src={imageUrl} alt={title} className="max-w-full h-auto rounded-lg object-contain" />
+        <div className="w-full flex justify-center bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3 max-h-[40vh] overflow-auto">
+          <img src={imageUrl} alt={title} className="w-full h-auto rounded-lg object-contain" />
         </div>
 
         <div className="flex justify-end w-full">

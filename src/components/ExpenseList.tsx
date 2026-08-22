@@ -34,127 +34,112 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const totalFilteredAmount = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="glass-card p-6 rounded-2xl mb-8 mt-12 shadow-2xl">
-      {/* 리스트 헤더 및 필터 바 */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10">
-        <div>
-          <h2 className="text-lg font-bold text-slate-100 flex items-center gap-3">
-            <FileText className="w-6 h-6 text-cyan-400" />
-            이번 달 법인카드 결제 명세 ({filteredExpenses.length}건)
-          </h2>
+    <div className="glass-card p-4 rounded-2xl mb-8 mt-6">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <FileText className="w-4 h-4 text-cyan-400" />
+          결제 명세 ({filteredExpenses.length}건)
+        </h2>
+        <span className="text-sm text-cyan-300 font-extrabold">
+          ₩{totalFilteredAmount.toLocaleString()}
+        </span>
+      </div>
+
+      {/* 검색 & 카테고리 필터 - 2열 */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input-field pl-8 py-2 text-xs w-full"
+          />
         </div>
-
-        {/* 검색 & 카테고리 필터 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="장소, 품목, 목적 검색..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field pl-9 py-1.5 text-xs w-48 focus:w-60 transition-all"
-            />
-          </div>
-
-          <div className="relative">
-            <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="input-field pl-9 py-1.5 text-xs bg-slate-900 text-slate-200"
-            >
-              <option value="ALL">전체 카테고리</option>
-              <option value="시설/건재/자재">시설/건재/자재</option>
-              <option value="스파/비품/소모품">스파/비품/소모품</option>
-              <option value="식비/간식/음료">식비/간식/음료</option>
-              <option value="교통/유류/주차">교통/유류/주차</option>
-              <option value="접대/회의/행사">접대/회의/행사</option>
-              <option value="기타/일반지출">기타/일반지출</option>
-            </select>
-          </div>
+        <div className="relative">
+          <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="input-field pl-8 py-2 text-xs bg-slate-900 text-slate-200 w-full"
+          >
+            <option value="ALL">전체</option>
+            <option value="시설/건재/자재">시설/건재</option>
+            <option value="스파/비품/소모품">비품/소모품</option>
+            <option value="식비/간식/음료">식비/음료</option>
+            <option value="교통/유류/주차">교통/주차</option>
+            <option value="접대/회의/행사">접대/행사</option>
+            <option value="기타/일반지출">기타</option>
+          </select>
         </div>
       </div>
 
-      {/* 리스트 카드 뷰 (모바일 친화적) */}
+      {/* 리스트 */}
       {filteredExpenses.length === 0 ? (
-        <div className="py-12 text-center text-slate-400">
-          <p className="text-sm">조회된 지출 내역이 없습니다.</p>
+        <div className="py-8 text-center text-slate-500 text-xs">
+          조회된 지출 내역이 없습니다.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {filteredExpenses.map((item) => (
-            <div key={item.id} className="bg-slate-900/50 border border-slate-700/60 rounded-xl p-4 flex flex-col gap-3 hover:bg-slate-800/50 transition-colors">
-              
-              {/* 카드 상단: 날짜, 카테고리, 관리버튼 */}
-              <div className="flex justify-between items-center border-b border-slate-700/50 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-300">{item.date} {item.time}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                    {item.category}
+            <div key={item.id} className="bg-slate-800/40 rounded-xl p-3 flex items-center gap-3">
+              {/* 좌: 영수증 썸네일 */}
+              {item.receiptImage ? (
+                <button
+                  type="button"
+                  onClick={() => onViewReceipt(item.receiptImage!, `${item.storeName} 영수증`)}
+                  className="shrink-0 w-10 h-10 rounded-lg overflow-hidden border border-cyan-500/30 bg-slate-900"
+                >
+                  <img src={item.receiptImage} alt="" className="w-full h-full object-cover" />
+                </button>
+              ) : (
+                <div className="shrink-0 w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                  <Image className="w-4 h-4 text-slate-500" />
+                </div>
+              )}
+
+              {/* 중앙: 정보 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-xs font-bold text-slate-100 truncate">{item.storeName}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-cyan-500/10 text-cyan-300 shrink-0">
+                    {item.category.split('/')[0]}
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="text-[10px] text-slate-400 truncate">{item.items}</div>
+                <div className="text-[10px] text-slate-500">{item.date}</div>
+              </div>
+
+              {/* 우: 금액 + 액션 */}
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-bold text-cyan-200">
+                  ₩{item.amount.toLocaleString()}
+                </div>
+                <div className="flex items-center gap-1 mt-1 justify-end">
                   <button
                     onClick={() => onEditExpense(item)}
-                    className="p-1.5 rounded text-slate-400 hover:text-cyan-300 bg-slate-800 hover:bg-slate-700 transition-colors"
-                    title="내역 수정"
+                    className="p-1 rounded text-slate-400 hover:text-cyan-300 transition-colors"
                   >
-                    <Edit3 className="w-3.5 h-3.5" />
+                    <Edit3 className="w-3 h-3" />
                   </button>
                   <button
                     onClick={() => {
-                      if (confirm(`'${item.storeName}' 지출 항목을 삭제하시겠습니까?`)) {
+                      if (confirm(`'${item.storeName}' 삭제?`)) {
                         onDeleteExpense(item.id);
                       }
                     }}
-                    className="p-1.5 rounded text-slate-400 hover:text-rose-400 bg-slate-800 hover:bg-slate-700 transition-colors"
-                    title="내역 삭제"
+                    className="p-1 rounded text-slate-400 hover:text-rose-400 transition-colors"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3 h-3" />
                   </button>
-                </div>
-              </div>
-
-              {/* 카드 본문: 장소, 사용 목적, 품목 */}
-              <div className="flex justify-between items-start gap-2">
-                <div className="flex flex-col gap-1 flex-1">
-                  <div className="font-bold text-slate-100 text-sm">{item.storeName}</div>
-                  <div className="text-xs text-slate-300 line-clamp-2">{item.purpose}</div>
-                  <div className="text-[11px] text-slate-400">품목: {item.items} ({item.quantity}개)</div>
-                  {item.note && <div className="text-[10px] text-amber-300/80 mt-0.5">※ {item.note}</div>}
-                </div>
-                
-                {/* 우측: 금액 및 영수증 */}
-                <div className="flex flex-col items-end justify-between gap-2 h-full min-w-[90px]">
-                  <div className="font-bold text-cyan-200 text-lg whitespace-nowrap">
-                    ₩{item.amount.toLocaleString()}
-                  </div>
-                  {item.receiptImage ? (
-                    <button
-                      onClick={() => onViewReceipt(item.receiptImage!, `${item.storeName} 영수증`)}
-                      className="px-2 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 transition-colors inline-flex items-center justify-center gap-1 text-[11px] w-full mt-1"
-                    >
-                      <Image className="w-3.5 h-3.5" />
-                      <span>보기</span>
-                    </button>
-                  ) : (
-                    <span className="text-slate-500 text-[11px] px-2 py-1.5 border border-slate-700/50 rounded-lg bg-slate-800/30 text-center w-full mt-1">미첨부</span>
-                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-
-      {/* 실시간 지출 합계 하단바 (구분선 제거) */}
-      <div className="mt-8 flex items-center justify-between text-xs font-semibold text-slate-300 bg-slate-900/40 p-4 rounded-xl">
-        <span>선택 조건 지출 합계</span>
-        <span className="text-lg text-cyan-300 font-extrabold">
-          ₩{totalFilteredAmount.toLocaleString()}
-        </span>
-      </div>
     </div>
   );
 };

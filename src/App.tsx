@@ -48,7 +48,6 @@ export function App() {
       if (editingItem) {
         // 수정 모드
         await updateExpense(editingItem.id, itemData);
-        // 상태 갱신
         const updated = expenses.map((item) =>
           item.id === editingItem.id ? { ...item, ...itemData } : item
         );
@@ -56,12 +55,24 @@ export function App() {
         setEditingItem(null);
       } else {
         // 신규 추가 모드
-        const newItem = await createExpense(itemData);
-        setExpenses([newItem, ...expenses]);
+        try {
+          const newItem = await createExpense(itemData);
+          setExpenses([newItem, ...expenses]);
+        } catch (dbErr) {
+          // Supabase DB 저장 실패 시 → 로컬 임시 저장 (화면에는 보이게)
+          console.warn('DB 저장 실패, 로컬 임시 저장:', dbErr);
+          const tempItem: ExpenseItem = {
+            ...itemData,
+            id: `temp_${Date.now()}`,
+            createdAt: new Date().toISOString()
+          };
+          setExpenses([tempItem, ...expenses]);
+          alert('서버 저장에 실패하여 화면에만 임시 등록되었습니다.\nSupabase 환경변수(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)와 DB 테이블 설정을 확인해주세요.');
+        }
       }
     } catch (err) {
       console.error('Save failed:', err);
-      alert('저장에 실패했습니다.');
+      alert('저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
     }
   };
 

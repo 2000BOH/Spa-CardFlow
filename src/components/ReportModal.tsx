@@ -30,7 +30,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-0 md:p-4 overflow-hidden">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-0 md:p-4 overflow-hidden">
       <div className="modal-container bg-slate-900 border border-slate-700/80 rounded-none md:rounded-2xl w-full h-full md:h-auto max-w-4xl md:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* 모달 상단 툴바 / 액션 버튼 */}
