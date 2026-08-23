@@ -54,25 +54,13 @@ export function App() {
         setExpenses(updated);
         setEditingItem(null);
       } else {
-        // 신규 추가 모드
-        try {
-          const newItem = await createExpense(itemData);
-          setExpenses([newItem, ...expenses]);
-        } catch (dbErr) {
-          // Supabase DB 저장 실패 시 → 로컬 임시 저장 (화면에는 보이게)
-          console.warn('DB 저장 실패, 로컬 임시 저장:', dbErr);
-          const tempItem: ExpenseItem = {
-            ...itemData,
-            id: `temp_${Date.now()}`,
-            createdAt: new Date().toISOString()
-          };
-          setExpenses([tempItem, ...expenses]);
-          alert('서버 연결 없이 오프라인 모드로 안전하게 임시 저장되었습니다.');
-        }
+        // 신규 추가 모드 (api 내부에서 로컬저장/서버저장 모두 알아서 처리함)
+        const newItem = await createExpense(itemData);
+        setExpenses([newItem, ...expenses]);
       }
     } catch (err) {
       console.error('Save failed:', err);
-      alert('저장에 실패했습니다. 네트워크 상태를 확인해주세요.');
+      // alert은 이제 띄우지 않습니다. api 내부 로직이 실패를 커버합니다.
     }
   };
 

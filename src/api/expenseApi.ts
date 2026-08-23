@@ -1,158 +1,163 @@
 import { supabase } from '../utils/supabase';
 import type { ExpenseItem } from '../types/expense';
 
+const LOCAL_STORAGE_KEY = 'spaflow_expenses_offline';
+
+// 로컬 스토리지 유틸리티
+const getLocalData = (): ExpenseItem[] => {
+  try {
+    const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const saveLocalData = (data: ExpenseItem[]) => {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('Local storage save error:', e);
+  }
+};
+
 /**
- * 1. 전체 지출 내역 조회 (Read)
+ * 1. 전체 지출 내역 조회 (Read) - Offline First
  */
 export async function fetchExpenses(): Promise<ExpenseItem[]> {
-  const { data, error } = await supabase
-    .from('expenses')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('expenses')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('지출 내역 불러오기 실패:', error);
-    throw error;
+    if (error) throw error;
+
+    const parsedData = (data || []).map((row: any) => ({
+      id: row.id,
+      storeName: row.store_name,
+      date: row.expense_date,
+      time: row.expense_time,
+      items: row.items,
+      quantity: row.quantity,
+      amount: row.amount,
+      category: row.category,
+      purpose: row.purpose,
+      note: row.note,
+      receiptImage: row.receipt_image_url,
+      createdAt: row.created_at,
+    }));
+
+    // 서버 데이터를 성공적으로 불러오면 로컬도 동기화
+    saveLocalData(parsedData);
+    return parsedData;
+  } catch (err) {
+    console.warn('서버 연결 실패. 오프라인 모드 데이터(LocalStorage)를 로드합니다.');
+    return getLocalData();
   }
-
-  // DB 스키마(snake_case)를 프론트엔드 타입(camelCase)으로 변환
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    storeName: row.store_name,
-    date: row.expense_date,
-    time: row.expense_time,
-    items: row.items,
-    quantity: row.quantity,
-    amount: row.amount,
-    category: row.category,
-    purpose: row.purpose,
-    note: row.note,
-    receiptImage: row.receipt_image_url,
-    createdAt: row.created_at,
-  }));
 }
 
 /**
- * 2. 지출 내역 신규 추가 (Create)
+ * 2. 지출 내역 신규 추가 (Create) - Offline First
  */
 export async function createExpense(item: Omit<ExpenseItem, 'id' | 'createdAt'>): Promise<ExpenseItem> {
-  const payload = {
-    store_name: item.storeName,
-    expense_date: item.date,
-    expense_time: item.time,
-    items: item.items,
-    quantity: item.quantity,
-    amount: item.amount,
-    category: item.category,
-    purpose: item.purpose,
-    note: item.note,
-    receipt_image_url: item.receiptImage,
+  const localData = getLocalData();
+  const newItem: ExpenseItem = {
+    ...item,
+    id: `local_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+    createdAt: new Date().toISOString()
   };
 
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert([payload])
-    .select()
-    .single();
+  try {
+    const payload = {
+      store_name: item.storeName,
+      expense_date: item.date,
+      expense_time: item.time,
+      items: item.items,
+      quantity: item.quantity,
+      amount: item.amount,
+      category: item.category,
+      purpose: item.purpose,
+      note: item.note,
+      receipt_image_url: item.receiptImage,
+    };
 
-  if (error) {
-    console.error('지출 내역 추가 실패:', error);
-    throw error;
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    newItem.id = data.id;
+    newItem.createdAt = data.created_at;
+    saveLocalData([newItem, ...localData]);
+    return newItem;
+  } catch (err) {
+    console.warn('서버 저장 실패. 오프라인 모드로 안전하게 저장합니다.');
+    saveLocalData([newItem, ...localData]);
+    return newItem;
   }
-
-  return {
-    id: data.id,
-    storeName: data.store_name,
-    date: data.expense_date,
-    time: data.expense_time,
-    items: data.items,
-    quantity: data.quantity,
-    amount: data.amount,
-    category: data.category,
-    purpose: data.purpose,
-    note: data.note,
-    receiptImage: data.receipt_image_url,
-    createdAt: data.created_at,
-  };
 }
 
 /**
- * 3. 지출 내역 수정 (Update)
+ * 3. 지출 내역 수정 (Update) - Offline First
  */
 export async function updateExpense(id: string, item: Partial<Omit<ExpenseItem, 'id' | 'createdAt'>>): Promise<void> {
-  const payload: any = {};
-  if (item.storeName !== undefined) payload.store_name = item.storeName;
-  if (item.date !== undefined) payload.expense_date = item.date;
-  if (item.time !== undefined) payload.expense_time = item.time;
-  if (item.items !== undefined) payload.items = item.items;
-  if (item.quantity !== undefined) payload.quantity = item.quantity;
-  if (item.amount !== undefined) payload.amount = item.amount;
-  if (item.category !== undefined) payload.category = item.category;
-  if (item.purpose !== undefined) payload.purpose = item.purpose;
-  if (item.note !== undefined) payload.note = item.note;
-  if (item.receiptImage !== undefined) payload.receipt_image_url = item.receiptImage;
+  const localData = getLocalData();
+  const updatedLocal = localData.map(ex => ex.id === id ? { ...ex, ...item } as ExpenseItem : ex);
+  saveLocalData(updatedLocal);
 
-  const { error } = await supabase
-    .from('expenses')
-    .update(payload)
-    .eq('id', id);
+  if (id.startsWith('local_')) {
+    // 로컬에만 있는 데이터면 여기서 종료
+    return;
+  }
 
-  if (error) {
-    console.error('지출 내역 수정 실패:', error);
-    throw error;
+  try {
+    const payload: any = {};
+    if (item.storeName !== undefined) payload.store_name = item.storeName;
+    if (item.date !== undefined) payload.expense_date = item.date;
+    if (item.time !== undefined) payload.expense_time = item.time;
+    if (item.items !== undefined) payload.items = item.items;
+    if (item.quantity !== undefined) payload.quantity = item.quantity;
+    if (item.amount !== undefined) payload.amount = item.amount;
+    if (item.category !== undefined) payload.category = item.category;
+    if (item.purpose !== undefined) payload.purpose = item.purpose;
+    if (item.note !== undefined) payload.note = item.note;
+    if (item.receiptImage !== undefined) payload.receipt_image_url = item.receiptImage;
+
+    await supabase.from('expenses').update(payload).eq('id', id);
+  } catch (err) {
+    console.warn('서버 수정 실패. 오프라인 모드에서는 수정이 유지됩니다.');
   }
 }
 
 /**
- * 4. 지출 내역 삭제 (Delete)
+ * 4. 지출 내역 삭제 (Delete) - Offline First
  */
 export async function deleteExpense(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('expenses')
-    .delete()
-    .eq('id', id);
+  const localData = getLocalData();
+  saveLocalData(localData.filter(ex => ex.id !== id));
 
-  if (error) {
-    console.error('지출 내역 삭제 실패:', error);
-    throw error;
+  if (id.startsWith('local_')) return;
+
+  try {
+    await supabase.from('expenses').delete().eq('id', id);
+  } catch (err) {
+    console.warn('서버 삭제 실패. 오프라인 모드에서는 삭제가 유지됩니다.');
   }
 }
 
-/**
- * 5. 영수증 이미지 스토리지 업로드 (Storage)
- * Supabase Storage에 업로드를 시도하고, 실패 시 null을 반환합니다.
- * 
- * [중요] Storage 버킷('receipts')이 Supabase에 생성되어 있지 않거나
- * 권한(RLS Policy)이 설정되지 않은 경우 업로드가 실패합니다.
- * 이 경우 호출자(ExpenseForm)에서 압축된 base64 DataURL을 DB에 직접 저장합니다.
- */
 export async function uploadReceiptImage(file: File): Promise<string | null> {
   try {
-    // 고유 파일명 생성
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error } = await supabase.storage
-      .from('receipts')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      console.warn('영수증 Storage 업로드 실패 (폴백: base64 저장):', error.message);
-      return null;
-    }
-
-    // 업로드 성공 시 public URL 가져오기
-    const { data: publicUrlData } = supabase.storage
-      .from('receipts')
-      .getPublicUrl(filePath);
-
-    return publicUrlData.publicUrl;
-  } catch (err) {
-    console.warn('영수증 Storage 연결 실패 (폴백: base64 저장):', err);
+    const { error } = await supabase.storage.from('receipts').upload(fileName, file);
+    if (error) return null;
+    const { data } = supabase.storage.from('receipts').getPublicUrl(fileName);
+    return data.publicUrl;
+  } catch {
     return null;
   }
 }

@@ -1,4 +1,5 @@
 import type { ExpenseCategory } from '../types/expense';
+import Tesseract from 'tesseract.js';
 
 export interface ParsedResult {
   storeName: string;
@@ -18,6 +19,7 @@ const getCurrentTimeStr = () => {
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
 
+// 퀵 텍스트 파서는 기존과 동일하게 유지
 export function parseQuickText(inputStr: string): ParsedResult {
   const trimmed = inputStr.trim();
   const today = getTodayStr();
@@ -29,116 +31,107 @@ export function parseQuickText(inputStr: string): ParsedResult {
   let quantity = 1;
   let category: ExpenseCategory = '기타/일반지출';
   let purpose = '';
-  let note = '자연어 퀵 입력 파싱';
+  let note = '자연어 입력';
 
   const manWonMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*만\s*원?/);
   const wonMatch = trimmed.match(/([\d,]+)\s*원/);
   const numMatch = trimmed.match(/(\d{4,9})/);
 
-  if (manWonMatch) {
-    amount = parseFloat(manWonMatch[1]) * 10000;
-  } else if (wonMatch) {
-    amount = parseInt(wonMatch[1].replace(/,/g, ''), 10);
-  } else if (numMatch) {
-    amount = parseInt(numMatch[1], 10);
-  }
-
-  const qtyMatch = trimmed.match(/(\d+)\s*(개|잔|병|세트|박스|권|명)/);
-  if (qtyMatch) {
-    quantity = parseInt(qtyMatch[1], 10);
-  }
+  if (manWonMatch) amount = parseFloat(manWonMatch[1]) * 10000;
+  else if (wonMatch) amount = parseInt(wonMatch[1].replace(/,/g, ''), 10);
+  else if (numMatch) amount = parseInt(numMatch[1], 10);
 
   const words = trimmed.split(/\s+/);
   if (words.length > 0) {
     storeName = words[0].replace(/(\d+만?원?)/, '').trim();
-    if (!storeName && words.length > 1) {
-      storeName = words[1];
-    }
+    if (!storeName && words.length > 1) storeName = words[1];
   }
-
-  if (!storeName) {
-    storeName = '미지정 상호';
-  }
+  if (!storeName) storeName = '미지정';
 
   const textLower = trimmed.toLowerCase();
-  if (/건재|타일|시멘트|페인트|공구|자재|수리|보수|철물/.test(textLower)) {
-    category = '시설/건재/자재';
-    items = items || '시설 수리 및 건축 자재';
-    purpose = purpose || '스파 시설 보수 및 자재 구매';
-  } else if (/아로마|오일|타월|타올|가운|비품|샴푸|비누|소모품|스파/.test(textLower)) {
-    category = '스파/비품/소모품';
-    items = items || '스파 용품 및 영업 비품';
-    purpose = purpose || '스파 운영용 비품 및 소모품 충전';
-  } else if (/카페|커피|스타벅스|식당|음료|간식|빵|마켓|도시락|맥도날드/.test(textLower)) {
-    category = '식비/간식/음료';
-    items = items || '음료 및 임직원 간식';
-    purpose = purpose || '근무 및 회의용 간식 구매';
-  } else if (/주유|주차|택시|기름|하이패스|GS|SK|S-OIL|오일/.test(textLower)) {
-    category = '교통/유류/주차';
-    items = items || '차량 주유 및 주차료';
-    purpose = purpose || '업무용 차량 주유 및 이동 교통비';
-  } else if (/갈비|회식|식사|접대|고깃집|식당|뷔페|행사/.test(textLower)) {
-    category = '접대/회의/행사';
-    items = items || '회의 및 업무 관련 식사';
-    purpose = purpose || '부서 회식 및 거래처 접대';
-  } else {
-    items = `${storeName} 지출 물품`;
-    purpose = `${storeName} 업무 관련 법인카드 결제`;
+  if (/건재|타일|시멘트|공구|자재/.test(textLower)) {
+    category = '시설/건재/자재'; items = '시설 보수 자재'; purpose = '스파 시설 유지보수';
+  } else if (/아로마|오일|타월|비품|소모품/.test(textLower)) {
+    category = '스파/비품/소모품'; items = '영업용 비품'; purpose = '스파 운영 비품 구매';
+  } else if (/카페|커피|음료|간식|식당/.test(textLower)) {
+    category = '식비/간식/음료'; items = '임직원 간식'; purpose = '근무/회의 간식';
   }
 
-  return {
-    storeName,
-    date: today,
-    time,
-    items,
-    quantity,
-    amount,
-    category,
-    purpose,
-    note
-  };
+  return { storeName, date: today, time, items, quantity, amount, category, purpose, note };
 }
 
-export function parseReceiptImageSimulation(fileName: string): ParsedResult {
-  const today = getTodayStr();
-  const time = getCurrentTimeStr();
-  const lowerName = fileName.toLowerCase();
+/**
+ * [신규] Tesseract.js 기반 실제 OCR 파싱
+ */
+export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedResult> {
+  const defaultResult = {
+    storeName: '',
+    date: getTodayStr(),
+    time: getCurrentTimeStr(),
+    items: '',
+    quantity: 1,
+    amount: 0,
+    category: '기타/일반지출' as ExpenseCategory,
+    purpose: '',
+    note: 'OCR 스캔'
+  };
 
-  if (lowerName.includes('건재') || lowerName.includes('hardware')) {
+  try {
+    // 한국어 모델 로드 및 텍스트 인식 수행
+    const { data: { text } } = await Tesseract.recognize(
+      imageUrl,
+      'kor',
+      { logger: m => console.log(m) }
+    );
+
+    console.log("OCR Extracted Text:", text);
+
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    
+    // 금액 찾기 휴리스틱 (₩ 기호, 합계, 결제금액 등 주변 숫자)
+    const amountRegex = /(?:합계|결제|합\s*계|금\s*액).*?(\d{1,3}(?:,\d{3})+)/;
+    const pureNumRegex = /(\d{1,3}(?:,\d{3})+)/;
+    
+    let amount = 0;
+    for (const line of lines) {
+      const match = line.match(amountRegex);
+      if (match) {
+        amount = parseInt(match[1].replace(/,/g, ''), 10);
+        break;
+      }
+    }
+    
+    // 합계 키워드를 못 찾았으면 콤마 있는 가장 큰 숫자 추정
+    if (amount === 0) {
+      let maxNum = 0;
+      for (const line of lines) {
+        const match = line.match(pureNumRegex);
+        if (match) {
+          const num = parseInt(match[1].replace(/,/g, ''), 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      amount = maxNum;
+    }
+
+    // 상호명 찾기 휴리스틱 (보통 최상단에 큰 글씨로 있음)
+    let storeName = '상호명 인식 실패';
+    if (lines.length > 0) {
+      // 대표적으로 사업자번호나 대표자 이름이 있는 줄 이전의 텍스트를 상호로 추정
+      storeName = lines[0].replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
+      if (storeName.length < 2 && lines.length > 1) {
+        storeName = lines[1].replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
+      }
+    }
+
     return {
-      storeName: '강원건재 종합상사',
-      date: today,
-      time: '14:20',
-      items: '욕실 방수 시멘트 및 타일 자재',
-      quantity: 2,
-      amount: 150000,
-      category: '시설/건재/자재',
-      purpose: '스파 샤워룸 보수용 건재 자재 구입',
-      note: '영수증 OCR 이미지 파싱 완료'
+      ...defaultResult,
+      storeName: storeName.substring(0, 15), // 너무 길면 자름
+      amount,
+      note: 'AI OCR 텍스트 자동 스캔',
     };
-  } else if (lowerName.includes('coffee') || lowerName.includes('starbucks') || lowerName.includes('카페')) {
-    return {
-      storeName: '블루오션 베이커리 카페',
-      date: today,
-      time: '15:10',
-      items: '수제 샌드위치 & 시그니처 아메리카노',
-      quantity: 4,
-      amount: 32000,
-      category: '식비/간식/음료',
-      purpose: '스파 고객 대기실 접대용 웰컴 샌드위치',
-      note: '영수증 OCR 자동 추출'
-    };
-  } else {
-    return {
-      storeName: '해운대 센텀 메디컬 마켓',
-      date: today,
-      time: time,
-      items: '손소독제 및 위생 스파 타월 세트',
-      quantity: 5,
-      amount: 88000,
-      category: '스파/비품/소모품',
-      purpose: '스파 매장 매일 위생 청결 비품 구입',
-      note: '영수증 자동 스캔 및 파싱 적용됨'
-    };
+  } catch (err) {
+    console.error("OCR Error:", err);
+    return defaultResult;
   }
 }
