@@ -97,11 +97,11 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-16 overflow-x-hidden w-full max-w-[100vw]">
       {/* 1. 브랜드 헤더 */}
       <Header onOpenReport={() => setIsReportOpen(true)} />
 
-      <main className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-10 mt-4">
+      <main className="w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 mt-4 overflow-x-hidden">
         {/* 2. 대시보드 KPI (D-Day 남은날, 이번달 사용금액, 남은 금액, 전월 대비 +/-) */}
         <Dashboard summary={summary} />
 

@@ -15,6 +15,12 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
 body {
   font-family: var(--font-main);
   background-color: var(--bg-dark);
@@ -166,7 +172,7 @@ body {
 .fab-button {
   position: fixed;
   bottom: 1.25rem;
-  right: 1.25rem;
+  right: 1.5rem;
   z-index: 9999;
   border-radius: 9999px;
   padding: 0.85rem;

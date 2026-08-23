@@ -324,8 +324,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
       )}
 
-      {/* 폼 입력란 - 모바일 2열 배치 */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-3 gap-y-4">
+      {/* 폼 입력란 - 모바일 1열, 태블릿 이상 2열 배치 */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-4 w-full overflow-hidden">
         {/* 장소 */}
         <div>
           <label className="field-label required">장소</label>
@@ -379,13 +379,13 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         </div>
 
         {/* 사용 목적 - 전체 너비 */}
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="field-label required">사용 목적 (보고용)</label>
           <input type="text" required className="input-field" placeholder="스파 샤워실 타일 보수 공사 자재 구매" value={purpose} onChange={(e) => setPurpose(e.target.value)} />
         </div>
 
         {/* 버튼 영역 */}
-        <div className="col-span-2 flex items-center justify-between gap-3 pt-4 mt-2">
+        <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-4 mt-2">
           <button
             type="button"
             onClick={resetForm}
