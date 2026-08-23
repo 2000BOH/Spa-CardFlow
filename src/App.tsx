@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ExpenseItem } from './types/expense';
 import { calculateBudgetSummary } from './utils/storage';
 import { fetchExpenses, createExpense, updateExpense, deleteExpense } from './api/expenseApi';
@@ -8,138 +8,261 @@ import { ExpenseForm } from './components/ExpenseForm';
 import { ExpenseList } from './components/ExpenseList';
 import { ReportModal } from './components/ReportModal';
 import { ReceiptModal } from './components/ReceiptModal';
-import { ShieldCheck, FileText } from 'lucide-react';
+import { BottomTabs } from './components/BottomTabs';
+import type { TabKey } from './components/BottomTabs';
+import { Camera, PenLine } from 'lucide-react';
+
+/** 768px 이상이면 데스크톱 레이아웃 */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
+
+const TAB_TITLE: Record<TabKey, string> = {
+  home: 'Spa CardFlow',
+  list: '결제 내역',
+  add: '결제 등록',
+  report: 'Spa CardFlow'
+};
 
 export function App() {
+  const isDesktop = useIsDesktop();
+
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [editingItem, setEditingItem] = useState<ExpenseItem | null>(null);
+  const [tab, setTab] = useState<TabKey>('home');
+  const [autoCamera, setAutoCamera] = useState(false);
 
-  // 모달 상태
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [receiptModalState, setReceiptModalState] = useState<{
-    isOpen: boolean;
-    url: string;
-    title: string;
-  }>({
-    isOpen: false,
+  const [receipt, setReceipt] = useState<{ open: boolean; url: string; title: string }>({
+    open: false,
     url: '',
     title: ''
   });
 
-  // 1. 초기 데이터 마운트 (Supabase Fetch)
   useEffect(() => {
-    async function loadData() {
+    (async () => {
       try {
-        const data = await fetchExpenses();
-        setExpenses(data);
+        setExpenses(await fetchExpenses());
       } catch (err) {
         console.error('Failed to load data:', err);
       }
-    }
-    loadData();
+    })();
   }, []);
 
-  // 2. 대시보드 요약 통계 실시간 산출
   const summary = calculateBudgetSummary(expenses);
 
-  // 3. 지출 항목 신규 저장 및 수정
-  const handleSaveExpense = async (itemData: Omit<ExpenseItem, 'id' | 'createdAt'>) => {
+  const handleSave = async (data: Omit<ExpenseItem, 'id' | 'createdAt'>) => {
     try {
       if (editingItem) {
-        // 수정 모드
-        await updateExpense(editingItem.id, itemData);
-        const updated = expenses.map((item) =>
-          item.id === editingItem.id ? { ...item, ...itemData } : item
+        await updateExpense(editingItem.id, data);
+        setExpenses((prev) =>
+          prev.map((item) => (item.id === editingItem.id ? { ...item, ...data } : item))
         );
-        setExpenses(updated);
         setEditingItem(null);
       } else {
-        // 신규 추가 모드 (api 내부에서 로컬저장/서버저장 모두 알아서 처리함)
-        const newItem = await createExpense(itemData);
-        setExpenses([newItem, ...expenses]);
+        const created = await createExpense(data);
+        setExpenses((prev) => [created, ...prev]);
       }
+      if (!isDesktop) setTab('list');
     } catch (err) {
       console.error('Save failed:', err);
-      // alert은 이제 띄우지 않습니다. api 내부 로직이 실패를 커버합니다.
     }
   };
 
-  // 4. 삭제 처리
-  const handleDeleteExpense = async (id: string) => {
+  const handleDelete = async (id: string) => {
     try {
       await deleteExpense(id);
-      setExpenses(expenses.filter((item) => item.id !== id));
+      setExpenses((prev) => prev.filter((item) => item.id !== id));
+      setEditingItem(null);
+      if (!isDesktop) setTab('list');
     } catch (err) {
       console.error('Delete failed:', err);
       alert('삭제에 실패했습니다.');
     }
   };
 
-  // 5. 영수증 원본 보기
-  const handleViewReceipt = (url: string, title: string) => {
-    setReceiptModalState({
-      isOpen: true,
-      url,
-      title
-    });
+  const handleEdit = (item: ExpenseItem) => {
+    setEditingItem(item);
+    if (!isDesktop) setTab('add');
   };
 
-  return (
-    <div className="min-h-screen pb-16 overflow-x-hidden w-full max-w-[100vw]">
-      {/* 1. 브랜드 헤더 */}
-      <Header onOpenReport={() => setIsReportOpen(true)} />
+  const viewReceipt = (url: string, title: string) => setReceipt({ open: true, url, title });
 
-      <main className="w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-10 mt-4 overflow-x-hidden">
-        {/* 2. 대시보드 KPI (D-Day 남은날, 이번달 사용금액, 남은 금액, 전월 대비 +/-) */}
-        <Dashboard summary={summary} />
+  const openReport = useCallback(() => {
+    setIsReportOpen(true);
+    if (!isDesktop) setTab('report');
+  }, [isDesktop]);
 
-        {/* 3. 영수증/텍스트 스마트 파싱 & 활성화된 수정 입력 폼 */}
-        <ExpenseForm
-          onSaveExpense={handleSaveExpense}
-          editingItem={editingItem}
-          onCancelEdit={() => setEditingItem(null)}
-        />
+  const handleTab = (next: TabKey) => {
+    if (next === 'report') {
+      setTab('report');
+      setIsReportOpen(true);
+      return;
+    }
+    if (next === 'add') {
+      setEditingItem(null);
+    }
+    setTab(next);
+  };
 
-        {/* 4. 법인카드 내역 리스트 & 관리 */}
-        <ExpenseList
+  /* ── 데스크톱: 요약 + 2열(내역 / 등록 폼) ── */
+  if (isDesktop) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header title="Spa CardFlow" onOpenReport={openReport} />
+
+        <Dashboard summary={summary} count={expenses.length} />
+
+        <main className="mx-auto max-w-page px-8 py-12 grid grid-cols-[minmax(0,1fr)_396px] gap-8 items-start">
+          <ExpenseList
+            expenses={expenses}
+            onEditExpense={handleEdit}
+            onViewReceipt={viewReceipt}
+          />
+
+          <div id="expense-form" className="sticky top-[108px]">
+            <ExpenseForm
+              onSaveExpense={handleSave}
+              onDeleteExpense={handleDelete}
+              editingItem={editingItem}
+              onCancelEdit={() => setEditingItem(null)}
+            />
+          </div>
+        </main>
+
+        <footer className="border-t border-line">
+          <div className="mx-auto max-w-page px-8 py-7 flex items-center justify-between gap-4 text-[14px] text-muted">
+            <span>Spa CardFlow v1.0</span>
+            <span>매월 15일 결산 · 블루오션 웰니스 스파</span>
+          </div>
+        </footer>
+
+        <ReportModal
+          isOpen={isReportOpen}
+          onClose={() => setIsReportOpen(false)}
           expenses={expenses}
-          onEditExpense={(item) => setEditingItem(item)}
-          onDeleteExpense={handleDeleteExpense}
-          onViewReceipt={handleViewReceipt}
+          summary={summary}
         />
-      </main>
+        <ReceiptModal
+          isOpen={receipt.open}
+          onClose={() => setReceipt((r) => ({ ...r, open: false }))}
+          imageUrl={receipt.url}
+          title={receipt.title}
+        />
+      </div>
+    );
+  }
 
-      {/* 푸터 */}
-      <footer className="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 pt-8 border-t border-slate-800/80 mt-12 flex flex-col sm:flex-row justify-center items-center gap-2">
-        <div className="flex items-center gap-1.5 text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-cyan-400" />
-          <span>Spa CardFlow v1.0</span>
+  /* ── 모바일: 하단 탭 + 한 화면에 하나씩 ── */
+  return (
+    <div className="min-h-screen bg-white cb-safe-bottom">
+      <Header title={TAB_TITLE[tab]} onOpenReport={openReport} />
+
+      {tab === 'home' && (
+        <>
+          <Dashboard summary={summary} count={expenses.length} />
+
+          <div className="px-5 pt-5 flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setEditingItem(null);
+                setAutoCamera(true);
+                setTab('add');
+              }}
+              className="cb-btn cb-btn-primary w-full h-[60px] text-[17px]"
+            >
+              <Camera className="w-[22px] h-[22px]" strokeWidth={1.8} />
+              영수증 찍어서 등록
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingItem(null);
+                setTab('add');
+              }}
+              className="cb-btn cb-btn-secondary w-full h-[52px]"
+            >
+              <PenLine className="w-[19px] h-[19px]" strokeWidth={1.8} />
+              직접 입력하기
+            </button>
+          </div>
+
+          <div className="px-5 pt-7 pb-6">
+            <ExpenseList
+              expenses={expenses}
+              onEditExpense={handleEdit}
+              onViewReceipt={viewReceipt}
+              limit={4}
+              showFilters={false}
+              title="최근 내역"
+              onRequestAdd={() => setTab('add')}
+              headerAction={
+                <button
+                  type="button"
+                  onClick={() => setTab('list')}
+                  className="border-none bg-transparent text-brand text-[14px] font-medium cursor-pointer p-0"
+                >
+                  전체 보기
+                </button>
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {tab === 'list' && (
+        <div className="px-5 py-5">
+          <ExpenseList
+            expenses={expenses}
+            onEditExpense={handleEdit}
+            onViewReceipt={viewReceipt}
+            onRequestAdd={() => setTab('add')}
+          />
         </div>
-      </footer>
+      )}
 
-      {/* 모바일 전용 플로팅 액션 버튼 (상급자 결산 보고서) */}
-      <button
-        onClick={() => setIsReportOpen(true)}
-        className="fab-button btn-primary shadow-glow md:hidden"
-        aria-label="보고서 생성"
-      >
-        <FileText className="w-6 h-6" />
-      </button>
+      {tab === 'add' && (
+        <div className="px-5 py-5">
+          <ExpenseForm
+            onSaveExpense={handleSave}
+            onDeleteExpense={handleDelete}
+            editingItem={editingItem}
+            onCancelEdit={() => {
+              setEditingItem(null);
+              setTab('list');
+            }}
+            autoCamera={autoCamera}
+            onAutoCameraHandled={() => setAutoCamera(false)}
+          />
+        </div>
+      )}
 
-      {/* 5. 상급자 보고서 모달 */}
+      <BottomTabs tab={tab} onChange={handleTab} />
+
       <ReportModal
         isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
+        onClose={() => {
+          setIsReportOpen(false);
+          setTab('home');
+        }}
         expenses={expenses}
         summary={summary}
       />
-
-      {/* 6. 영수증 원본 확대 모달 */}
       <ReceiptModal
-        isOpen={receiptModalState.isOpen}
-        onClose={() => setReceiptModalState({ ...receiptModalState, isOpen: false })}
-        imageUrl={receiptModalState.url}
-        title={receiptModalState.title}
+        isOpen={receipt.open}
+        onClose={() => setReceipt((r) => ({ ...r, open: false }))}
+        imageUrl={receipt.url}
+        title={receipt.title}
       />
     </div>
   );

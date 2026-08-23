@@ -1,14 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ExpenseCategory, ExpenseItem } from '../types/expense';
-import { parseQuickText, parseRealReceiptImage } from '../utils/ocrParser';
+import { parseRealReceiptImage } from '../utils/ocrParser';
 import { uploadReceiptImage } from '../api/expenseApi';
-import { Camera, Sparkles, Save, RotateCcw, Upload, CheckCircle2, Loader2 } from 'lucide-react';
-
-interface ExpenseFormProps {
-  onSaveExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt'>) => void;
-  editingItem?: ExpenseItem | null;
-  onCancelEdit?: () => void;
-}
+import { Camera, Info, Loader2, Trash2 } from 'lucide-react';
 
 const CATEGORIES: ExpenseCategory[] = [
   '시설/건재/자재',
@@ -19,235 +13,379 @@ const CATEGORIES: ExpenseCategory[] = [
   '기타/일반지출'
 ];
 
-export const ExpenseForm: React.FC<ExpenseFormProps> = ({ onSaveExpense, editingItem, onCancelEdit }) => {
-  const [quickInput, setQuickInput] = useState('');
-  
+const shortCat = (c: string) => c.split('/').slice(0, 2).join('/');
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+interface ExpenseFormProps {
+  onSaveExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt'>) => void;
+  onDeleteExpense?: (id: string) => void;
+  editingItem?: ExpenseItem | null;
+  onCancelEdit?: () => void;
+  /** 홈에서 "영수증 찍어서 등록"으로 진입했을 때 카메라를 바로 연다 */
+  autoCamera?: boolean;
+  onAutoCameraHandled?: () => void;
+}
+
+export const ExpenseForm: React.FC<ExpenseFormProps> = ({
+  onSaveExpense,
+  onDeleteExpense,
+  editingItem,
+  onCancelEdit,
+  autoCamera,
+  onAutoCameraHandled
+}) => {
   const [storeName, setStoreName] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState('12:00');
   const [items, setItems] = useState('');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [amount, setAmount] = useState<number | ''>('');
-  const [category, setCategory] = useState<ExpenseCategory>('시설/건재/자재');
+  const [quantity, setQuantity] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<ExpenseCategory>(CATEGORIES[0]);
   const [purpose, setPurpose] = useState('');
   const [note, setNote] = useState('');
-  const [receiptImage, setReceiptImage] = useState<string>('');
+  const [receiptImage, setReceiptImage] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
-  const [parseNotice, setParseNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isOcrProcessing, setIsOcrProcessing] = useState(false);
-  
+  const [isOcr, setIsOcr] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editingItem) {
-      setStoreName(editingItem.storeName); setDate(editingItem.date); setTime(editingItem.time);
-      setItems(editingItem.items); setQuantity(editingItem.quantity); setAmount(editingItem.amount);
-      setCategory(editingItem.category); setPurpose(editingItem.purpose); setNote(editingItem.note || '');
-      setReceiptImage(editingItem.receiptImage || '');
-      setParseNotice('수정할 항목이 로드되었습니다.');
-    }
+    if (!editingItem) return;
+    setStoreName(editingItem.storeName);
+    setDate(editingItem.date);
+    setTime(editingItem.time);
+    setItems(editingItem.items);
+    setQuantity(String(editingItem.quantity ?? ''));
+    setAmount(String(editingItem.amount));
+    setCategory(editingItem.category);
+    setPurpose(editingItem.purpose);
+    setNote(editingItem.note ?? '');
+    setReceiptImage(editingItem.receiptImage ?? '');
+    setReceiptFile(null);
+    setNotice(null);
   }, [editingItem]);
 
-  const handleQuickTextParse = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!quickInput.trim()) return;
-    const p = parseQuickText(quickInput);
-    setStoreName(p.storeName); setDate(p.date); setTime(p.time); setItems(p.items);
-    setQuantity(p.quantity); setAmount(p.amount); setCategory(p.category); setPurpose(p.purpose); setNote(p.note);
-    setParseNotice(`"${quickInput}" → 자동 적용 완료!`);
+  useEffect(() => {
+    if (autoCamera) {
+      fileInputRef.current?.click();
+      onAutoCameraHandled?.();
+    }
+  }, [autoCamera, onAutoCameraHandled]);
+
+  const reset = () => {
+    setStoreName('');
+    setDate(todayStr());
+    setTime('12:00');
+    setItems('');
+    setQuantity('');
+    setAmount('');
+    setCategory(CATEGORIES[0]);
+    setPurpose('');
+    setNote('');
+    setReceiptImage('');
+    setReceiptFile(null);
+    setNotice(null);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 1. 이미지 압축 (로컬 저장용)
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        let width = img.width; let height = img.height; const MAX_SIZE = 1200;
-        if (width > height) {
-          if (width > MAX_SIZE) { height = Math.round(height * MAX_SIZE / width); width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width = Math.round(width * MAX_SIZE / height); height = MAX_SIZE; }
+        const MAX = 1200;
+        let w = img.width;
+        let h = img.height;
+        if (w > h && w > MAX) {
+          h = Math.round((h * MAX) / w);
+          w = MAX;
+        } else if (h >= w && h > MAX) {
+          w = Math.round((w * MAX) / h);
+          h = MAX;
         }
-        canvas.width = width; canvas.height = height;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        setReceiptImage(compressedDataUrl);
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        setReceiptImage(dataUrl);
         setReceiptFile(file);
 
-        // 2. 찐(Real) OCR 분석 시작
-        setIsOcrProcessing(true);
-        setParseNotice('AI가 영수증의 글씨를 읽고 있습니다... (3~5초 소요)');
-        
+        setIsOcr(true);
+        setNotice('영수증을 읽고 있습니다. 3~5초 걸립니다.');
         try {
-          const p = await parseRealReceiptImage(compressedDataUrl);
-          
-          if (p.amount > 0) setAmount(p.amount);
-          if (p.storeName) setStoreName(p.storeName);
-          setParseNotice('AI 분석 완료! 빈칸을 확인해주세요.');
-        } catch (err) {
-          setParseNotice('영수증 분석에 실패했습니다. 직접 입력해주세요.');
+          const parsed = await parseRealReceiptImage(dataUrl);
+          if (parsed.amount > 0) setAmount(String(parsed.amount));
+          if (parsed.storeName) setStoreName(parsed.storeName);
+          setNotice('자동 인식이 끝났습니다. 빈칸을 확인해 주세요.');
+        } catch {
+          setNotice('영수증을 읽지 못했습니다. 직접 입력해 주세요.');
         } finally {
-          setIsOcrProcessing(false);
+          setIsOcr(false);
         }
       };
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
-  const resetForm = () => {
-    setQuickInput(''); setStoreName(''); setDate(new Date().toISOString().split('T')[0]); setTime('12:00');
-    setItems(''); setQuantity(1); setAmount(''); setCategory('시설/건재/자재'); setPurpose(''); setNote('');
-    setReceiptImage(''); setReceiptFile(null); setParseNotice(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeName.trim() || !amount || Number(amount) <= 0) {
-      alert('상호명과 금액을 정확히 입력해주세요.'); return;
+  const submit = async () => {
+    const amt = Number(String(amount).replace(/[^0-9]/g, ''));
+    if (!storeName.trim() || !amt) {
+      setNotice('결제처와 금액은 반드시 입력해야 합니다.');
+      return;
     }
+
     setIsUploading(true);
     try {
-      let finalImageUrl = receiptImage;
+      let finalImage = receiptImage;
       if (receiptFile) {
-        const uploadedUrl = await uploadReceiptImage(receiptFile);
-        if (uploadedUrl) finalImageUrl = uploadedUrl;
+        const uploaded = await uploadReceiptImage(receiptFile);
+        if (uploaded) finalImage = uploaded;
       }
+
       onSaveExpense({
-        storeName: storeName.trim(), date, time,
-        items: items.trim() || `${storeName} 결제 내역`, quantity: Number(quantity) || 1, amount: Number(amount),
-        category, purpose: purpose.trim() || '법인카드 사용 목적 기입', note: note.trim(),
-        receiptImage: finalImageUrl || undefined
+        storeName: storeName.trim(),
+        date,
+        time,
+        items: items.trim() || `${storeName.trim()} 결제`,
+        quantity: Number(String(quantity).replace(/[^0-9]/g, '')) || 1,
+        amount: amt,
+        category,
+        purpose: purpose.trim() || '사용 목적 미기입',
+        note: note.trim(),
+        receiptImage: finalImage || undefined
       });
-      resetForm();
-      if (onCancelEdit) onCancelEdit();
+
+      reset();
+      onCancelEdit?.();
     } catch (err) {
       console.error(err);
+      setNotice('저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="expense-form-container glass-card p-6 mb-10 border-t-4 border-t-blue-500 bg-white">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-        <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600">
-          <Camera className="w-5 h-5" />
-        </div>
-        <h2 className="text-lg font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
-          결제 내역 등록
-          {editingItem && <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full font-bold">수정 중</span>}
+    <div className="cb-card p-5 md:p-7">
+      <div className="flex items-baseline justify-between gap-3 mb-5">
+        <h2 className="text-[17px] md:text-[19px] font-bold tracking-tight">
+          {editingItem ? '내역 수정' : '결제 내역 등록'}
         </h2>
-      </div>
-
-      {/* 빠른 파싱 + 영수증 업로드를 가로 2열로 배치 */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-          <label className="text-[11px] font-bold text-slate-500 mb-2.5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-            빠른 텍스트 입력
-          </label>
-          <input
-            type="text"
-            value={quickInput}
-            onChange={(e) => setQuickInput(e.target.value)}
-            placeholder="예: 스타벅스 3만원"
-            className="input-field w-full text-xs mb-3 bg-white"
-            onKeyDown={(e) => e.key === 'Enter' && handleQuickTextParse(e)}
-          />
+        {editingItem && (
           <button
             type="button"
-            onClick={() => handleQuickTextParse()}
-            disabled={!quickInput.trim()}
-            className="w-full btn-primary bg-blue-600 py-2.5 rounded-xl disabled:opacity-40"
+            onClick={onCancelEdit}
+            className="border-none bg-transparent text-brand text-[14px] cursor-pointer p-0"
           >
-            적용하기
+            편집 취소
           </button>
-        </div>
-
-        <div
-          className={`p-4 rounded-2xl cursor-pointer flex flex-col items-center justify-center transition-all ${
-            receiptImage ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50 border border-dashed border-slate-300 hover:border-blue-400'
-          }`}
-          onClick={() => !isOcrProcessing && fileInputRef.current?.click()}
-        >
-          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
-          
-          {isOcrProcessing ? (
-            <div className="flex flex-col items-center">
-              <Loader2 className="w-7 h-7 text-blue-500 animate-spin mb-2" />
-              <span className="text-[11px] font-bold text-blue-600">AI 분석 중...</span>
-            </div>
-          ) : receiptImage ? (
-            <div className="relative w-full flex flex-col items-center">
-              <img src={receiptImage} alt="영수증" className="max-h-12 max-w-[80%] object-contain rounded-lg mb-2 shadow-sm" />
-              <span className="text-[11px] text-blue-600 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> 스캔 완료
-              </span>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setReceiptImage(''); setReceiptFile(null); setParseNotice(null); }}
-                className="text-[10px] text-slate-400 mt-1 hover:text-red-500"
-              >
-                다시 올리기
-              </button>
-            </div>
-          ) : (
-            <>
-              <Upload className="w-7 h-7 text-slate-400 mb-2" />
-              <span className="text-[12px] font-bold text-slate-600">영수증 촬영/업로드</span>
-            </>
-          )}
-        </div>
+        )}
       </div>
 
-      {parseNotice && (
-        <div className="mb-6 p-3 bg-blue-50 rounded-xl flex items-center gap-2 text-xs font-semibold text-blue-700 border border-blue-100">
-          {isOcrProcessing ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
-          <span>{parseNotice}</span>
+      <input
+        type="file"
+        accept="image/*"
+        capture="environment"
+        ref={fileInputRef}
+        onChange={handleImage}
+        className="hidden"
+      />
+
+      {receiptImage ? (
+        <div className="flex items-center gap-3.5 p-3.5 border border-line rounded-[14px] mb-5">
+          <img src={receiptImage} alt="영수증" className="w-14 h-14 shrink-0 rounded-[10px] object-cover" />
+          <div className="flex-1 min-w-0">
+            <div className="text-[15px] font-medium">
+              {isOcr ? '영수증 분석 중…' : '영수증 첨부됨'}
+            </div>
+            <div className="text-[13px] text-muted mt-0.5">보고서에 함께 보관됩니다</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setReceiptImage('');
+              setReceiptFile(null);
+            }}
+            aria-label="영수증 삭제"
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full bg-surface text-muted border-none cursor-pointer"
+          >
+            <Trash2 className="w-[17px] h-[17px]" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full flex items-center gap-3 p-4 mb-5 border border-dashed border-[rgba(91,97,110,0.4)] rounded-[14px] bg-white text-left cursor-pointer hover:border-brand transition-colors"
+        >
+          <Camera className="w-[22px] h-[22px] text-brand shrink-0" strokeWidth={1.7} />
+          <div>
+            <div className="text-[16px] font-medium leading-tight">영수증 촬영</div>
+            <div className="text-[13px] text-muted leading-tight mt-0.5">
+              금액·결제처를 자동으로 채웁니다
+            </div>
+          </div>
+        </button>
+      )}
+
+      {notice && (
+        <div className="flex items-start gap-2.5 p-3.5 mb-5 rounded-xl border border-[rgba(0,82,255,0.25)] bg-[rgba(0,82,255,0.04)] text-[14px] leading-relaxed">
+          {isOcr ? (
+            <Loader2 className="w-4 h-4 text-brand shrink-0 mt-0.5 animate-spin" />
+          ) : (
+            <Info className="w-4 h-4 text-brand shrink-0 mt-0.5" />
+          )}
+          <span>{notice}</span>
         </div>
       )}
 
-      {/* 폼 입력란 */}
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-5 w-full overflow-hidden">
-        <div><label className="field-label required">결제처 (상호)</label><input type="text" required className="input-field" placeholder="강원건재" value={storeName} onChange={(e) => setStoreName(e.target.value)} /></div>
-        <div><label className="field-label required">결제 금액 (원)</label><input type="number" required min="0" step="10" className="input-field font-extrabold text-blue-600 text-lg" placeholder="150000" value={amount} onChange={(e) => setAmount(e.target.value ? Number(e.target.value) : '')} /></div>
-        <div><label className="field-label required">날짜</label><input type="date" required className="input-field" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div><label className="field-label">시간</label><input type="time" className="input-field" value={time} onChange={(e) => setTime(e.target.value)} /></div>
-        <div><label className="field-label">구매 품목</label><input type="text" className="input-field" placeholder="타일, 오일 등" value={items} onChange={(e) => setItems(e.target.value)} /></div>
-        <div><label className="field-label required">분류</label>
-          <select className="input-field bg-white" value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
-            {CATEGORIES.map((cat) => (<option key={cat} value={cat}>{cat}</option>))}
-          </select>
+      <div className="flex flex-col gap-4.5" style={{ gap: '18px', display: 'flex', flexDirection: 'column' }}>
+        <div>
+          <label className="cb-label">결제 금액</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="cb-input cb-input-amount"
+          />
         </div>
-        <div className="sm:col-span-2"><label className="field-label required">상세 사용 목적 (보고서용)</label><input type="text" required className="input-field" placeholder="스파 샤워실 보수 공사 자재 구매" value={purpose} onChange={(e) => setPurpose(e.target.value)} /></div>
-        <div className="sm:col-span-2"><label className="field-label">비고 메모</label><input type="text" className="input-field" placeholder="추가 메모사항" value={note} onChange={(e) => setNote(e.target.value)} /></div>
 
-        <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-6 mt-2 border-t border-slate-100">
-          <button type="button" onClick={resetForm} className="btn-secondary px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 bg-white">
-            <RotateCcw className="w-4 h-4 mr-1.5" /> 전체 지우기
-          </button>
-          
-          <div className="flex items-center gap-2">
-            {editingItem && <button type="button" onClick={onCancelEdit} className="btn-secondary px-5 py-2.5 rounded-xl text-xs font-bold bg-white">취소</button>}
-            <button type="submit" disabled={isUploading || isOcrProcessing} className={`btn-primary px-8 py-3 rounded-xl text-sm font-extrabold ${isUploading ? 'opacity-70 cursor-wait' : ''}`}>
-              <Save className="w-4 h-4 mr-2" />
-              {isUploading ? '저장하는 중...' : (editingItem ? '수정 내용 저장' : '등록 완료')}
-            </button>
+        <div>
+          <label className="cb-label">결제처</label>
+          <input
+            type="text"
+            placeholder="상호명"
+            value={storeName}
+            onChange={(e) => setStoreName(e.target.value)}
+            className="cb-input"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="cb-label">날짜</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="cb-input px-3"
+            />
+          </div>
+          <div>
+            <label className="cb-label">시간</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="cb-input px-3"
+            />
           </div>
         </div>
-      </form>
+
+        <div>
+          <label className="cb-label">분류</label>
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategory(cat)}
+                className={`cb-chip h-11 ${category === cat ? 'cb-chip-blue' : ''}`}
+              >
+                {shortCat(cat)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[1fr_96px] gap-3">
+          <div>
+            <label className="cb-label">품목</label>
+            <input
+              type="text"
+              placeholder="구매한 물품"
+              value={items}
+              onChange={(e) => setItems(e.target.value)}
+              className="cb-input"
+            />
+          </div>
+          <div>
+            <label className="cb-label">수량</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="1"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="cb-input px-3 text-center"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="cb-label">사용 목적 · 보고서에 그대로 실립니다</label>
+          <textarea
+            rows={3}
+            placeholder="업무상 사용 목적을 적어주세요"
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+            className="cb-input"
+          />
+        </div>
+
+        <div>
+          <label className="cb-label">비고</label>
+          <input
+            type="text"
+            placeholder="선택 입력"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="cb-input"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2.5 mt-6 pt-5 border-t border-line">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isUploading || isOcr}
+          className="cb-btn cb-btn-primary flex-1 h-[56px] text-[17px]"
+        >
+          {isUploading ? '저장하는 중…' : editingItem ? '수정 내용 저장' : '등록하기'}
+        </button>
+        <button type="button" onClick={reset} className="cb-btn cb-btn-secondary h-[56px] px-5">
+          지우기
+        </button>
+      </div>
+
+      {editingItem && onDeleteExpense && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm(`'${editingItem.storeName}' 내역을 삭제할까요?`)) return;
+            onDeleteExpense(editingItem.id);
+            reset();
+            onCancelEdit?.();
+          }}
+          className="cb-btn cb-btn-danger w-full h-[52px] mt-2.5"
+        >
+          이 내역 삭제
+        </button>
+      )}
     </div>
   );
 };

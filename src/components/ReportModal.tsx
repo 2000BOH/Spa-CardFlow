@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
-import { exportReportToPDF, exportReportToJPG, printReportWindow } from '../utils/pdfExporter';
-import { Download, Printer, Image, X, Sparkles } from 'lucide-react';
+import { exportReportToPDF, printReportWindow } from '../utils/pdfExporter';
+import { Download, Printer, X } from 'lucide-react';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -10,234 +10,307 @@ interface ReportModalProps {
   summary: BudgetSummary;
 }
 
-export const ReportModal: React.FC<ReportModalProps> = ({
-  isOpen,
-  onClose,
-  expenses,
-  summary
-}) => {
+const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
+
+/** 기안 정보는 한 번 입력하면 브라우저에 저장된다 */
+const META_KEY = 'spa_cardflow_report_meta_v1';
+type Meta = { team: string; drafter: string; card: string };
+const loadMeta = (): Meta => {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* noop */
+  }
+  return { team: '', drafter: '', card: '' };
+};
+
+export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expenses, summary }) => {
+  const [meta, setMeta] = useState<Meta>(loadMeta);
+  const [editing, setEditing] = useState(false);
+
   if (!isOpen) return null;
 
-  const todayStr = new Date().toLocaleDateString('ko-KR', {
+  const saveMeta = (next: Meta) => {
+    setMeta(next);
+    try {
+      localStorage.setItem(META_KEY, JSON.stringify(next));
+    } catch {
+      /* noop */
+    }
+  };
+
+  const today = new Date();
+  const submitDate = today.toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   });
 
-  const categorySummary: { [key: string]: number } = {};
+  const byCategory: Record<string, number> = {};
   expenses.forEach((item) => {
-    categorySummary[item.category] = (categorySummary[item.category] || 0) + item.amount;
+    byCategory[item.category] = (byCategory[item.category] ?? 0) + item.amount;
   });
+  const breakdown = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+
+  const ordered = [...expenses].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const blank = (v: string) => (v.trim() ? v : '미입력');
+  const blankClass = (v: string) => (v.trim() ? 'text-ink' : 'text-muted');
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-0 md:p-4 overflow-hidden">
-      <div className="modal-container bg-slate-900 border border-slate-700/80 rounded-none md:rounded-2xl w-full h-full md:h-auto max-w-4xl md:max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-        
-        {/* 모달 상단 툴바 / 액션 버튼 */}
-        <div className="p-4 bg-slate-800/90 border-b border-slate-700 flex flex-wrap items-center justify-between gap-3 text-slate-200">
-          <div className="flex items-center gap-2 font-bold text-sm text-cyan-300">
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>Spa CardFlow - 상급자 결산 보고서 출력</span>
-          </div>
-
+    <div className="fixed inset-0 z-[10000] bg-[rgba(10,11,13,0.6)] flex items-start justify-center overflow-auto md:p-8">
+      <div className="w-full md:max-w-[860px] bg-white md:rounded-[20px] min-h-screen md:min-h-0 overflow-hidden">
+        {/* 툴바 */}
+        <div className="cb-no-print sticky top-0 z-10 flex items-center justify-between gap-3 px-5 md:px-8 py-4 bg-white border-b border-line">
+          <div className="text-[15px] font-bold tracking-tight">결산 보고서</div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => exportReportToPDF('printable-report-area', `SpaCardFlow_법인카드_결산보고서_${summary.closingDateStr}.pdf`)}
-              className="btn-primary py-1.5 px-3 text-xs bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500"
+              type="button"
+              onClick={() =>
+                exportReportToPDF(
+                  'printable-report-area',
+                  `SpaCardFlow_결산보고서_${summary.closingDateStr}.pdf`
+                )
+              }
+              className="cb-btn cb-btn-primary h-11 px-5 text-[15px]"
             >
-              <Download className="w-3.5 h-3.5 mr-1" />
-              PDF 다운로드
+              <Download className="w-4 h-4" />
+              PDF
             </button>
-
             <button
-              onClick={() => exportReportToJPG('printable-report-area', `SpaCardFlow_법인카드_결산보고서_${summary.closingDateStr}.jpg`)}
-              className="btn-secondary py-1.5 px-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200"
-            >
-              <Image className="w-3.5 h-3.5 mr-1" />
-              JPG 저장
-            </button>
-
-            <button
+              type="button"
               onClick={() => printReportWindow()}
-              className="btn-secondary py-1.5 px-3 text-xs bg-slate-700 hover:bg-slate-600 text-slate-200"
+              className="cb-btn cb-btn-secondary h-11 px-5 text-[15px] hidden md:inline-flex"
             >
-              <Printer className="w-3.5 h-3.5 mr-1" />
+              <Printer className="w-4 h-4" />
               인쇄
             </button>
-
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors ml-2"
+              aria-label="닫기"
+              className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full bg-surface border-none cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-[18px] h-[18px]" />
             </button>
           </div>
         </div>
 
-        {/* 출력 및 보기에 사용되는 정식 보고서 서식 영역 */}
-        <div className="overflow-y-auto p-6 bg-slate-950 flex justify-center">
-          <div 
-            id="printable-report-area"
-            className="w-full max-w-[800px] bg-white text-slate-900 p-10 rounded-lg shadow-xl font-sans text-xs leading-relaxed"
-            style={{ color: '#1e293b' }}
-          >
-            {/* 1. 보고서 타이틀 및 결재란 헤더 */}
-            <div className="flex justify-between items-start border-b-2 border-slate-900 pb-5 mb-6">
-              {/* 로고 & 제목 */}
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <img 
-                    src="/logo.png" 
-                    alt="Spa CardFlow Logo" 
-                    className="w-10 h-10 rounded-lg shadow object-cover"
-                  />
-                  <div>
-                    <span className="font-extrabold tracking-widest text-slate-800 text-sm block">
-                      BLUE OCEAN WELLNESS SPA
-                    </span>
-                    <span className="text-[10px] text-cyan-800 font-bold">Spa CardFlow 지출 정산 시스템</span>
+        <div id="printable-report-area" className="px-5 md:px-8 py-6 md:py-8 bg-white text-ink">
+          {/* 문서 머리 + 결재란 */}
+          <div className="md:flex md:items-start md:justify-between md:gap-8 border-b-2 border-ink pb-6 mb-7">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 mb-3">
+                <img src="/logo.png" alt="" className="w-9 h-9 rounded-lg object-cover" />
+                <div>
+                  <div className="text-[12px] font-bold tracking-[0.14em] leading-tight">
+                    BLUE OCEAN WELLNESS SPA
+                  </div>
+                  <div className="text-[12px] text-muted leading-tight mt-0.5">
+                    Spa CardFlow 지출 정산 시스템
                   </div>
                 </div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
-                  법인카드 월간 사용 내역 결산 보고서
-                </h1>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  문서번호: BOWS-CARD-202608-015 | 제출일자: {todayStr}
-                </p>
               </div>
-
-              {/* 상급자 결재란 (기안 - 검토 - 승인) */}
-              <div className="border border-slate-400 text-center text-[10px]">
-                <table className="border-collapse">
-                  <tbody>
-                    <tr>
-                      <td rowSpan={2} className="bg-slate-100 font-bold px-1.5 border-r border-slate-400 writing-mode-vertical">
-                        결<br />재
-                      </td>
-                      <td className="border-r border-b border-slate-400 px-3 py-1 font-semibold bg-slate-50">기 안</td>
-                      <td className="border-r border-b border-slate-400 px-3 py-1 font-semibold bg-slate-50">검 토</td>
-                      <td className="border-b border-slate-400 px-3 py-1 font-semibold bg-slate-50">승 인</td>
-                    </tr>
-                    <tr className="h-12">
-                      <td className="border-r border-slate-400 px-2 py-1 align-bottom text-slate-400 font-medium">
-                        김수현 (인)
-                      </td>
-                      <td className="border-r border-slate-400 px-2 py-1 align-bottom text-slate-400 font-medium">
-                        (인/서명)
-                      </td>
-                      <td className="px-2 py-1 align-bottom text-slate-400 font-medium">
-                        (인/서명)
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <h1 className="text-[22px] md:text-[28px] font-bold tracking-tight leading-tight">
+                법인카드 월간 사용 내역 결산 보고서
+              </h1>
+              <p className="text-[13px] text-muted mt-2.5 leading-relaxed">
+                결산일 {summary.closingDateStr} · 제출일자 {submitDate}
+              </p>
             </div>
 
-            {/* 2. 기안 기본 정보 테이블 */}
-            <div className="mb-6">
-              <h2 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1">
-                <span className="w-2 h-2 bg-cyan-700 inline-block"></span>
-                1. 기본 기안 정보
-              </h2>
-              <table className="w-full border-collapse border border-slate-300 text-center">
-                <tbody>
-                  <tr className="bg-slate-100">
-                    <th className="border border-slate-300 p-2 font-semibold text-slate-700 w-1/6">기안 부서</th>
-                    <td className="border border-slate-300 p-2 w-2/6">블루오션 웰니스 스파 운영팀</td>
-                    <th className="border border-slate-300 p-2 font-semibold text-slate-700 w-1/6">기 안 자</th>
-                    <td className="border border-slate-300 p-2 w-2/6">김수현 실장 (인)</td>
-                  </tr>
-                  <tr className="bg-white">
-                    <th className="border border-slate-300 p-2 font-semibold text-slate-700">결산 대상 기간</th>
-                    <td className="border border-slate-300 p-2 font-medium">2026.08.01 ~ 2026.08.15</td>
-                    <th className="border border-slate-300 p-2 font-semibold text-slate-700">카드 정보</th>
-                    <td className="border border-slate-300 p-2">KB국민 법인 [9821]</td>
-                  </tr>
-                  <tr className="bg-slate-50">
-                    <th className="border border-slate-300 p-2 font-bold text-slate-900 bg-slate-200">총 결산 집행액</th>
-                    <td className="border border-slate-300 p-2 font-extrabold text-cyan-800 text-sm" colSpan={3}>
-                      ₩{summary.currentSpend.toLocaleString()} 원 (총 {expenses.length}건)
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* 3. 카테고리별 요약 명세 */}
-            <div className="mb-6">
-              <h2 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1">
-                <span className="w-2 h-2 bg-cyan-700 inline-block"></span>
-                2. 비목별 집행 요약
-              </h2>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                {Object.entries(categorySummary).map(([cat, amt]) => (
-                  <div key={cat} className="p-2 border border-slate-200 bg-slate-50 rounded">
-                    <div className="text-[10px] text-slate-500 font-semibold">{cat}</div>
-                    <div className="text-xs font-bold text-slate-900 mt-0.5">₩{amt.toLocaleString()}</div>
+            <div className="flex mt-5 md:mt-0 border border-[rgba(91,97,110,0.3)] rounded-lg overflow-hidden shrink-0">
+              <div className="w-[34px] bg-surface flex items-center justify-center text-[12px] font-bold tracking-[0.3em] writing-mode-vertical border-r border-[rgba(91,97,110,0.3)]">
+                결재
+              </div>
+              <div className="grid grid-cols-3 flex-1 md:w-[220px]">
+                {['기 안', '검 토', '승 인'].map((label, i) => (
+                  <div key={label} className={i < 2 ? 'border-r border-[rgba(91,97,110,0.3)]' : ''}>
+                    <div className="py-1.5 text-center text-[12px] font-medium bg-surface border-b border-[rgba(91,97,110,0.3)]">
+                      {label}
+                    </div>
+                    <div className="h-14" />
                   </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* 4. 법인카드 지출 세부 항목 명세표 */}
-            <div className="mb-6">
-              <h2 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1">
-                <span className="w-2 h-2 bg-cyan-700 inline-block"></span>
-                3. 사용 내역 세부 명세
-              </h2>
-              <table className="w-full border-collapse border border-slate-300 text-left">
-                <thead>
-                  <tr className="bg-slate-200 text-slate-800 font-bold text-[11px]">
-                    <th className="border border-slate-300 p-2 text-center w-8">No</th>
-                    <th className="border border-slate-300 p-2 w-20">결제일자</th>
-                    <th className="border border-slate-300 p-2 w-28">장소(상호명)</th>
-                    <th className="border border-slate-300 p-2 w-24">구분</th>
-                    <th className="border border-slate-300 p-2">품목 / 사용 상세 내용</th>
-                    <th className="border border-slate-300 p-2 text-right w-24">금액(원)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300 text-[11px]">
-                  {expenses.map((item, idx) => (
-                    <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
-                      <td className="border border-slate-300 p-2 text-center font-medium">{idx + 1}</td>
-                      <td className="border border-slate-300 p-2">{item.date}</td>
-                      <td className="border border-slate-300 p-2 font-semibold text-slate-900">{item.storeName}</td>
-                      <td className="border border-slate-300 p-2 text-slate-600">{item.category}</td>
-                      <td className="border border-slate-300 p-2">
-                        <div className="font-semibold text-slate-800">{item.items} ({item.quantity}개)</div>
-                        <div className="text-[10px] text-slate-600 mt-0.5">{item.purpose}</div>
-                      </td>
-                      <td className="border border-slate-300 p-2 text-right font-bold text-slate-900">
-                        ₩{item.amount.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="bg-slate-200 font-bold text-slate-900">
-                    <td colSpan={5} className="border border-slate-300 p-2.5 text-center">
-                      합 계 (Total Amount)
-                    </td>
-                    <td className="border border-slate-300 p-2.5 text-right text-sm text-cyan-900 font-extrabold">
-                      ₩{summary.currentSpend.toLocaleString()}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          {/* 1. 기본 기안 정보 */}
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-[7px] h-[7px] bg-brand inline-block" />
+              <h2 className="text-[15px] font-bold">1. 기본 기안 정보</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              className="cb-no-print border-none bg-transparent text-brand text-[14px] cursor-pointer p-0"
+            >
+              {editing ? '입력 완료' : '기안 정보 입력'}
+            </button>
+          </div>
+
+          <div className="border border-line rounded-xl overflow-hidden mb-7">
+            {(
+              [
+                ['기안 부서', 'team'],
+                ['기 안 자', 'drafter'],
+                ['카드 정보', 'card']
+              ] as const
+            ).map(([label, key]) => (
+              <div key={key} className="grid grid-cols-[104px_1fr] border-b border-line-soft">
+                <div className="px-3.5 py-3 bg-surface text-[13px] font-medium text-muted">
+                  {label}
+                </div>
+                <div className="px-3.5 py-2 flex items-center">
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={meta[key]}
+                      onChange={(e) => saveMeta({ ...meta, [key]: e.target.value })}
+                      placeholder={label}
+                      className="cb-input h-10 text-[15px]"
+                    />
+                  ) : (
+                    <span className={`text-[14px] ${blankClass(meta[key])}`}>
+                      {blank(meta[key])}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <div className="grid grid-cols-[104px_1fr] border-b border-line-soft">
+              <div className="px-3.5 py-3 bg-surface text-[13px] font-medium text-muted">
+                결산 기간
+              </div>
+              <div className="px-3.5 py-3 text-[14px]">~ {summary.closingDateStr}</div>
             </div>
 
-            {/* 5. 서명 및 서약 */}
-            <div className="mt-8 pt-4 border-t border-slate-300 text-center">
-              <p className="text-[11px] text-slate-600 mb-4">
-                위 법인카드 사용 내역은 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게 집행되었음을 증명합니다.
-              </p>
-              <div className="text-xs font-bold text-slate-900">
-                2026년 08월 15일
-              </div>
-              <div className="text-sm font-extrabold text-slate-900 mt-2">
-                블루오션 웰니스 스파 운영대표 / 기안자 김 수 현 (인)
+            <div className="grid grid-cols-[104px_1fr]">
+              <div className="px-3.5 py-3.5 bg-ink text-white text-[13px] font-medium">총 집행액</div>
+              <div className="px-3.5 py-3.5 flex items-baseline gap-2">
+                <span className="num text-[20px]">{won(summary.currentSpend)}</span>
+                <span className="text-[13px] text-muted">총 {expenses.length}건</span>
               </div>
             </div>
+          </div>
 
+          {/* 2. 비목별 집행 요약 */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-[7px] h-[7px] bg-brand inline-block" />
+            <h2 className="text-[15px] font-bold">2. 비목별 집행 요약</h2>
+          </div>
+
+          {breakdown.length === 0 ? (
+            <div className="py-7 px-4 border border-dashed border-[rgba(91,97,110,0.35)] rounded-xl text-center text-[14px] text-muted mb-7">
+              집행 내역이 없습니다
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 mb-7">
+              {breakdown.map(([cat, amt]) => {
+                const pct =
+                  summary.currentSpend > 0 ? Math.round((amt / summary.currentSpend) * 100) : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-baseline justify-between gap-3 mb-2">
+                      <span className="text-[14px]">{cat}</span>
+                      <span className="flex items-baseline gap-2.5">
+                        <span className="text-[13px] text-muted">{pct}%</span>
+                        <span className="num text-[16px]">{won(amt)}</span>
+                      </span>
+                    </div>
+                    <div className="h-[5px] rounded-full bg-surface overflow-hidden">
+                      <div className="h-full rounded-full bg-brand" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 3. 사용 내역 세부 명세 */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-[7px] h-[7px] bg-brand inline-block" />
+            <h2 className="text-[15px] font-bold">3. 사용 내역 세부 명세</h2>
+          </div>
+
+          {ordered.length === 0 ? (
+            <div className="py-7 px-4 border border-dashed border-[rgba(91,97,110,0.35)] rounded-xl text-center text-[14px] text-muted">
+              등록된 결제 내역이 없습니다
+            </div>
+          ) : (
+            <div className="border border-line rounded-xl overflow-hidden">
+              {/* 데스크톱 표 머리글 */}
+              <div className="hidden md:grid grid-cols-[44px_104px_1fr_132px_120px] gap-3 px-4 py-3 bg-surface text-[12px] font-medium uppercase tracking-[0.06em] text-muted">
+                <div>No</div>
+                <div>결제일자</div>
+                <div>상호 · 품목 · 목적</div>
+                <div>구분</div>
+                <div className="text-right">금액</div>
+              </div>
+
+              {ordered.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="px-4 py-3.5 border-t border-line-soft md:grid md:grid-cols-[44px_104px_1fr_132px_120px] md:gap-3 md:items-start"
+                >
+                  {/* 모바일 */}
+                  <div className="md:hidden">
+                    <div className="flex items-baseline justify-between gap-2.5">
+                      <div className="text-[12px] text-muted">
+                        No.{idx + 1} · {item.date}
+                      </div>
+                      <div className="num text-[16px]">{won(item.amount)}</div>
+                    </div>
+                    <div className="text-[15px] font-medium mt-1.5">{item.storeName}</div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="px-2 py-1 rounded-md bg-surface text-[12px]">
+                        {item.category}
+                      </span>
+                      <span className="text-[13px] text-muted truncate">
+                        {item.items} ({item.quantity}개)
+                      </span>
+                    </div>
+                    <div className="text-[13px] text-muted leading-relaxed mt-1.5">
+                      {item.purpose}
+                    </div>
+                  </div>
+
+                  {/* 데스크톱 */}
+                  <div className="hidden md:block text-[14px] text-muted">{idx + 1}</div>
+                  <div className="hidden md:block text-[14px] tabular-nums">{item.date}</div>
+                  <div className="hidden md:block min-w-0 text-[14px]">
+                    <div className="font-medium">{item.storeName}</div>
+                    <div className="text-muted leading-relaxed mt-0.5">
+                      {item.items} ({item.quantity}개) · {item.purpose}
+                    </div>
+                  </div>
+                  <div className="hidden md:block text-[14px] text-muted">{item.category}</div>
+                  <div className="hidden md:block num text-[15px] text-right">
+                    {won(item.amount)}
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-baseline justify-between gap-3 px-4 py-4 bg-ink text-white">
+                <span className="text-[14px] font-medium">합 계</span>
+                <span className="num text-[19px]">{won(summary.currentSpend)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* 서명 */}
+          <div className="mt-7 pt-5 border-t border-line text-center">
+            <p className="text-[13px] text-muted leading-relaxed">
+              위 법인카드 사용 내역은 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게
+              집행되었음을 증명합니다.
+            </p>
+            <div className="text-[14px] font-medium mt-4">{submitDate}</div>
+            <div className={`text-[15px] font-bold mt-1.5 ${blankClass(meta.drafter)}`}>
+              블루오션 웰니스 스파 기안자 {blank(meta.drafter)} (인)
+            </div>
           </div>
         </div>
       </div>

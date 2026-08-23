@@ -1,81 +1,101 @@
 import React from 'react';
 import type { BudgetSummary } from '../types/expense';
-import { Wallet, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface DashboardProps {
   summary: BudgetSummary;
-  onBudgetChange?: (newBudget: number) => void;
+  count: number;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ summary }) => {
-  const usagePercentage = Math.min(
-    100,
-    Math.round((summary.currentSpend / summary.monthlyBudget) * 100)
-  );
-  const isDiffPositive = summary.spendDiff >= 0;
+const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
+
+export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
+  const usagePct =
+    summary.monthlyBudget > 0
+      ? Math.min(100, Math.round((summary.currentSpend / summary.monthlyBudget) * 100))
+      : 0;
+
+  const hasPrev = summary.prevMonthSpend > 0;
+  const diffUp = summary.spendDiff >= 0;
 
   return (
-    <div className="mb-8">
-      {/* 메인: 사용액 + 프로그래스 바 */}
-      <div className="glass-card p-5 mb-4 border-t-4 border-t-blue-500">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">이번 달 사용 금액</span>
-          <span className="text-sm font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{usagePercentage}%</span>
+    <section className="bg-ink text-white">
+      <div className="mx-auto max-w-page px-5 md:px-8 py-7 md:py-14 md:grid md:grid-cols-[1.15fr_1fr] md:gap-16 md:items-end">
+        {/* 주 지표 */}
+        <div>
+          <div className="text-[12px] md:text-[13px] font-medium uppercase tracking-[0.1em] text-white/50 mb-3 md:mb-4">
+            이번 달 사용 금액
+          </div>
+
+          <div className="flex items-baseline gap-3 md:gap-4 mb-5 md:mb-7">
+            <div className="num text-[46px] md:text-[76px] leading-none tracking-[-0.03em]">
+              {won(summary.currentSpend)}
+            </div>
+            <div className="hidden md:block text-[16px] font-medium text-white/50 whitespace-nowrap">
+              / {won(summary.monthlyBudget)}
+            </div>
+          </div>
+
+          <div className="h-1.5 rounded-full bg-white/15 overflow-hidden mb-3">
+            <div
+              className="h-full rounded-full bg-brand transition-[width] duration-500 ease-in-out"
+              style={{ width: `${usagePct}%` }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between text-[13px] md:text-[14px] text-white/55">
+            <span>
+              한도 {won(summary.monthlyBudget)} 중 {usagePct}%
+            </span>
+            <span>결산 D-{summary.daysUntilClosing}</span>
+          </div>
         </div>
-        <div className="text-3xl font-extrabold text-slate-800 tracking-tight mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
-          ₩{summary.currentSpend.toLocaleString()}
+
+        {/* 보조 지표 3종 */}
+        <div className="hidden md:grid grid-cols-3 mt-0">
+          <div className="pr-6 border-r border-white/15">
+            <div className="text-[13px] text-white/50 mb-2.5">남은 금액</div>
+            <div className="num text-[26px] leading-tight">
+              {won(Math.max(0, summary.remainingBudget))}
+            </div>
+          </div>
+          <div className="px-6 border-r border-white/15">
+            <div className="text-[13px] text-white/50 mb-2.5">건수</div>
+            <div className="num text-[26px] leading-tight">{count}건</div>
+          </div>
+          <div className="pl-6">
+            <div className="text-[13px] text-white/50 mb-2.5">전월 대비</div>
+            <div
+              className="num text-[26px] leading-tight"
+              style={{ color: !hasPrev ? 'rgba(255,255,255,0.5)' : diffUp ? '#f0616d' : '#4ed0a7' }}
+            >
+              {hasPrev ? `${diffUp ? '+' : ''}${summary.spendDiffPercent}%` : '—'}
+            </div>
+          </div>
         </div>
-        
-        <div className="w-full h-2.5 bg-slate-100 rounded-full mb-2 overflow-hidden shadow-inner">
+      </div>
+
+      {/* 모바일 보조 지표 — 흰 배경으로 분리 */}
+      <div className="md:hidden grid grid-cols-3 bg-white text-ink border-b border-line">
+        <div className="px-4 py-[18px] border-r border-line">
+          <div className="text-[12px] text-muted mb-1.5">남은 금액</div>
+          <div className="num text-[18px] leading-tight">
+            {won(Math.max(0, summary.remainingBudget))}
+          </div>
+        </div>
+        <div className="px-4 py-[18px] border-r border-line">
+          <div className="text-[12px] text-muted mb-1.5">건수</div>
+          <div className="num text-[18px] leading-tight">{count}건</div>
+        </div>
+        <div className="px-4 py-[18px]">
+          <div className="text-[12px] text-muted mb-1.5">전월 대비</div>
           <div
-            className={`h-full rounded-full transition-all duration-700 ${usagePercentage > 85 ? 'bg-gradient-to-r from-orange-400 to-red-500' : 'bg-gradient-to-r from-blue-400 to-indigo-500'}`}
-            style={{ width: `${usagePercentage}%` }}
-          />
-        </div>
-        <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400">
-          <span>한도 ₩{summary.monthlyBudget.toLocaleString()}</span>
-          {usagePercentage >= 100 && <span className="text-red-500">초과 주의</span>}
-        </div>
-      </div>
-
-      {/* 서브: 3개 미니 지표를 1행에 */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* 남은 금액 */}
-        <div className="glass-card p-4 text-center">
-          <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-2">
-            <Wallet className="w-4 h-4 text-emerald-500" />
-          </div>
-          <div className="text-[10px] font-bold text-slate-400 mb-1">남은 금액</div>
-          <div className={`text-sm font-extrabold ${summary.remainingBudget >= 0 ? 'text-slate-700' : 'text-red-500'}`} style={{ fontFamily: "'Outfit', sans-serif" }}>
-            ₩{Math.abs(summary.remainingBudget).toLocaleString()}
-          </div>
-        </div>
-
-        {/* D-Day */}
-        <div className="glass-card p-4 text-center">
-          <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-2">
-            <Clock className="w-4 h-4 text-orange-500" />
-          </div>
-          <div className="text-[10px] font-bold text-slate-400 mb-1">결산까지</div>
-          <div className="text-sm font-extrabold text-slate-700" style={{ fontFamily: "'Outfit', sans-serif" }}>
-            D-{summary.daysUntilClosing}
-          </div>
-        </div>
-
-        {/* 전월 대비 */}
-        <div className="glass-card p-4 text-center">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center mx-auto mb-2 ${isDiffPositive ? 'bg-red-50' : 'bg-blue-50'}`}>
-            {isDiffPositive
-              ? <TrendingUp className="w-4 h-4 text-red-500" />
-              : <TrendingDown className="w-4 h-4 text-blue-500" />
-            }
-          </div>
-          <div className="text-[10px] font-bold text-slate-400 mb-1">전월 대비</div>
-          <div className={`text-sm font-extrabold ${isDiffPositive ? 'text-red-500' : 'text-blue-600'}`} style={{ fontFamily: "'Outfit', sans-serif" }}>
-            {isDiffPositive ? '+' : ''}{summary.spendDiffPercent}%
+            className="num text-[18px] leading-tight"
+            style={{ color: !hasPrev ? '#5b616e' : diffUp ? '#cf202f' : '#00a35c' }}
+          >
+            {hasPrev ? `${diffUp ? '+' : ''}${summary.spendDiffPercent}%` : '—'}
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
