@@ -35,6 +35,23 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     day: '2-digit'
   });
 
+  const getPeriodString = (closingDateStr: string) => {
+    const match = closingDateStr.match(/(\d{4})[^\d]+(\d{1,2})/);
+    if (!match) return `~ ${closingDateStr}`;
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    
+    let prevYear = year;
+    let prevMonth = month - 1;
+    if (prevMonth === 0) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+    
+    const prevMonthStr = String(prevMonth).padStart(2, '0');
+    return `${prevYear}.${prevMonthStr}.16 ~ ${closingDateStr}`;
+  };
+
   const ordered = [...tableData].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const handleTableChange = (id: string, field: string, value: string) => {
@@ -105,7 +122,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
             <div className="sc-meta-row">
               <div className="sc-meta-key">결산 기간</div>
-              <div className="sc-meta-val">~ {summary.closingDateStr}</div>
+              <div className="sc-meta-val">{getPeriodString(summary.closingDateStr)}</div>
             </div>
 
             <div className="sc-meta-row">
@@ -174,19 +191,24 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               위 법인카드는 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게 집행되었습니다.
             </p>
             <div className="sc-sign-date" style={{ fontSize: '15px', marginBottom: '10px' }}>{submitDate}</div>
-            <div className="sc-sign-name" style={{ fontSize: '16px', fontWeight: 600, display: 'inline-block', position: 'relative' }}>
-              이수용 이사 (인)
-              <span style={{
-                position: 'absolute',
-                top: '-15px',
-                right: '-10px',
-                fontFamily: 'cursive, "Brush Script MT", "궁서", serif',
-                fontSize: '28px',
-                color: 'rgba(0, 0, 0, 0.8)',
-                transform: 'rotate(-5deg)',
-                pointerEvents: 'none'
-              }}>
-                이수용
+            <div className="sc-sign-name" style={{ fontSize: '16px', fontWeight: 600, display: 'inline-block' }}>
+              이수용 이사{' '}
+              <span style={{ position: 'relative', display: 'inline-block' }}>
+                (인)
+                <span style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  left: '0px',
+                  fontFamily: '"Nanum Pen Script", "Caveat", "궁서", cursive',
+                  fontSize: '24px',
+                  color: 'rgba(0, 0, 0, 0.75)',
+                  transform: 'rotate(-5deg)',
+                  pointerEvents: 'none',
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '2px'
+                }}>
+                  이수용
+                </span>
               </span>
             </div>
           </div>
