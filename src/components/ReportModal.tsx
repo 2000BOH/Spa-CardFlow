@@ -12,40 +12,22 @@ interface ReportModalProps {
 
 const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
 
-/** 기안 정보는 한 번 입력하면 브라우저에 저장된다 */
-const META_KEY = 'spa_cardflow_report_meta_v1';
-type Meta = { team: string; drafter: string; card: string };
+// 메타 정보 불필요해짐 (하드코딩)
 
-const loadMeta = (): Meta => {
-  try {
-    const raw = localStorage.getItem(META_KEY);
-    if (raw) return { team: '', drafter: '', card: '', ...JSON.parse(raw) };
-  } catch {
-    /* noop */
-  }
-  return { team: '', drafter: '', card: '' };
-};
-
-const META_FIELDS: [string, keyof Meta][] = [
-  ['기안 부서', 'team'],
-  ['기 안 자', 'drafter'],
-  ['카드 정보', 'card']
-];
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expenses, summary }) => {
-  const [meta, setMeta] = useState<Meta>(loadMeta);
   const [editing, setEditing] = useState(false);
+  const [tableData, setTableData] = useState(
+    expenses.map(e => ({
+      id: e.id,
+      date: e.date,
+      amount: won(e.amount),
+      purpose: e.purpose,
+      note: e.note || ''
+    }))
+  );
 
   if (!isOpen) return null;
-
-  const saveMeta = (next: Meta) => {
-    setMeta(next);
-    try {
-      localStorage.setItem(META_KEY, JSON.stringify(next));
-    } catch {
-      /* noop */
-    }
-  };
 
   const submitDate = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -53,15 +35,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     day: '2-digit'
   });
 
-  const byCategory: Record<string, number> = {};
-  expenses.forEach((item) => {
-    byCategory[item.category] = (byCategory[item.category] ?? 0) + item.amount;
-  });
-  const breakdown = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
-  const ordered = [...expenses].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const ordered = [...tableData].sort((a, b) => (a.date < b.date ? -1 : 1));
 
-  const shown = (v: string) => (v.trim() ? v : '미입력');
-  const blankCls = (v: string) => (v.trim() ? '' : ' sc-meta-val-blank');
+  const handleTableChange = (id: string, field: string, value: string) => {
+    setTableData(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+  };
 
   return (
     <div className="sc-overlay">
@@ -105,18 +83,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 결산일 {summary.closingDateStr} · 제출일자 {submitDate}
               </div>
             </div>
-
-            <div className="sc-approval">
-              <div className="sc-approval-spine">결재</div>
-              <div className="sc-approval-cells">
-                {['기 안', '검 토', '승 인'].map((label) => (
-                  <div key={label} className="sc-approval-cell">
-                    <div className="sc-approval-cap">{label}</div>
-                    <div className="sc-approval-sign" />
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* 1. 기본 기안 정보 */}
@@ -132,24 +98,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           </div>
 
           <div className="sc-meta">
-            {META_FIELDS.map(([label, key]) => (
-              <div key={key} className="sc-meta-row">
-                <div className="sc-meta-key">{label}</div>
-                <div className={'sc-meta-val' + blankCls(meta[key])}>
-                  {editing ? (
-                    <input
-                      type="text"
-                      className="sc-input"
-                      placeholder={label}
-                      value={meta[key]}
-                      onChange={(e) => saveMeta({ ...meta, [key]: e.target.value })}
-                    />
-                  ) : (
-                    shown(meta[key])
-                  )}
-                </div>
-              </div>
-            ))}
+            <div className="sc-meta-row">
+              <div className="sc-meta-key">카드 정보</div>
+              <div className="sc-meta-val">기업은행 (동반상생카드) 5292 **** **** 5947</div>
+            </div>
 
             <div className="sc-meta-row">
               <div className="sc-meta-key">결산 기간</div>
@@ -165,95 +117,47 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </div>
           </div>
 
-          {/* 2. 비목별 집행 요약 */}
-          <div className="sc-section-head">
-            <h2 className="sc-section-title">2. 비목별 집행 요약</h2>
-          </div>
 
-          {breakdown.length === 0 ? (
-            <div className="sc-blankbox">집행 내역이 없습니다</div>
-          ) : (
-            <div className="sc-bd">
-              {breakdown.map(([cat, amt]) => {
-                const pct =
-                  summary.currentSpend > 0 ? Math.round((amt / summary.currentSpend) * 100) : 0;
-                return (
-                  <div key={cat}>
-                    <div className="sc-bd-head">
-                      <span className="sc-bd-label">{cat}</span>
-                      <span className="sc-bd-right">
-                        <span className="sc-bd-pct">{pct}%</span>
-                        <span className="sc-bd-amount">{won(amt)}</span>
-                      </span>
-                    </div>
-                    <div className="sc-bd-track">
-                      <i style={{ width: `${pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* 3. 사용 내역 세부 명세 */}
+          {/* 2. 사용 내역 세부 명세 */}
           <div className="sc-section-head">
-            <h2 className="sc-section-title">3. 사용 내역 세부 명세</h2>
+            <h2 className="sc-section-title">2. 세부사용 내역</h2>
+            <button
+              type="button"
+              className="sc-link sc-no-print"
+              onClick={() => setEditing((v) => !v)}
+            >
+              {editing ? '표 편집 완료' : '표 내용 편집하기'}
+            </button>
           </div>
 
           {ordered.length === 0 ? (
             <div className="sc-blankbox">등록된 결제 내역이 없습니다</div>
           ) : (
             <div className="sc-detail">
-              <div className="sc-detail-grid sc-detail-thead sc-only-desktop">
-                <span>No</span>
-                <span>결제일자</span>
-                <span>상호 · 품목 · 목적</span>
-                <span>구분</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 2fr', fontWeight: 600, padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', color: '#475569' }}>
+                <span>일자</span>
                 <span>금액</span>
+                <span>사용목적</span>
+                <span>비고</span>
               </div>
 
-              {ordered.map((item, idx) => (
-                <div key={item.id} className="sc-detail-item">
-                  {/* 모바일 */}
-                  <div className="sc-only-mobile">
-                    <div className="sc-detail-top">
-                      <span className="sc-detail-no">
-                        No.{idx + 1} · {item.date}
-                      </span>
-                      <span className="sc-detail-amount">{won(item.amount)}</span>
-                    </div>
-                    <div className="sc-detail-store">{item.storeName}</div>
-                    <div className="sc-detail-tags">
-                      <span className="sc-tag">{item.category}</span>
-                      <span className="sc-detail-items">
-                        {item.items} ({item.quantity}개)
-                      </span>
-                    </div>
-                    <div className="sc-detail-purpose">{item.purpose}</div>
-                  </div>
-
-                  {/* 데스크톱 */}
-                  <div className="sc-detail-grid sc-only-desktop">
-                    <span className="sc-detail-cell sc-detail-cell-muted">{idx + 1}</span>
-                    <span className="sc-detail-cell" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      {item.date}
-                    </span>
-                    <span className="sc-detail-cell" style={{ minWidth: 0 }}>
-                      <span style={{ fontWeight: 500, display: 'block' }}>{item.storeName}</span>
-                      <span
-                        style={{
-                          display: 'block',
-                          color: 'var(--muted)',
-                          lineHeight: 1.55,
-                          marginTop: 2
-                        }}
-                      >
-                        {item.items} ({item.quantity}개) · {item.purpose}
-                      </span>
-                    </span>
-                    <span className="sc-detail-cell sc-detail-cell-muted">{item.category}</span>
-                    <span className="sc-detail-cell-amount">{won(item.amount)}</span>
-                  </div>
+              {ordered.map((item) => (
+                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 2fr', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '14px', alignItems: 'center' }}>
+                  {editing ? (
+                    <>
+                      <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+                      <input className="sc-input" value={item.amount} onChange={e => handleTableChange(item.id, 'amount', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+                      <input className="sc-input" value={item.purpose} onChange={e => handleTableChange(item.id, 'purpose', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+                      <input className="sc-input" value={item.note} onChange={e => handleTableChange(item.id, 'note', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+                    </>
+                  ) : (
+                    <>
+                      <span>{item.date}</span>
+                      <span>{item.amount}</span>
+                      <span>{item.purpose}</span>
+                      <span style={{ color: 'var(--muted)' }}>{item.note || '-'}</span>
+                    </>
+                  )}
                 </div>
               ))}
 
@@ -265,17 +169,25 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           )}
 
           {/* 서명 */}
-          <div className="sc-sign">
-            <p className="sc-sign-note">
-              위 법인카드 사용 내역은 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게
-              집행되었음을 증명합니다.
+          <div className="sc-sign" style={{ marginTop: '40px', textAlign: 'center', position: 'relative' }}>
+            <p className="sc-sign-note" style={{ fontSize: '15px', color: '#0f172a', marginBottom: '20px' }}>
+              위 법인카드는 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게 집행되었습니다.
             </p>
-            <div className="sc-sign-date">{submitDate}</div>
-            <div
-              className="sc-sign-name"
-              style={{ color: meta.drafter.trim() ? undefined : 'var(--muted)' }}
-            >
-              블루오션 웰니스 스파 기안자 {shown(meta.drafter)} (인)
+            <div className="sc-sign-date" style={{ fontSize: '15px', marginBottom: '10px' }}>{submitDate}</div>
+            <div className="sc-sign-name" style={{ fontSize: '16px', fontWeight: 600, display: 'inline-block', position: 'relative' }}>
+              이수용 이사 (인)
+              <span style={{
+                position: 'absolute',
+                top: '-15px',
+                right: '-10px',
+                fontFamily: 'cursive, "Brush Script MT", "궁서", serif',
+                fontSize: '28px',
+                color: 'rgba(0, 0, 0, 0.8)',
+                transform: 'rotate(-5deg)',
+                pointerEvents: 'none'
+              }}>
+                이수용
+              </span>
             </div>
           </div>
         </div>
