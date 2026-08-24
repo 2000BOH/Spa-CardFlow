@@ -35,22 +35,34 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     day: '2-digit'
   });
 
-  const getPeriodString = (closingDateStr: string) => {
-    const match = closingDateStr.match(/(\d{4})[^\d]+(\d{1,2})/);
-    if (!match) return `~ ${closingDateStr}`;
-    const year = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    
-    let nextYear = year;
-    let nextMonth = month + 1;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear += 1;
+  const getPeriodString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+
+    let startYear = year;
+    let startMonth = month;
+    let endYear = year;
+    let endMonth = month + 1;
+
+    if (day < 15) {
+      startMonth = month - 1;
+      endMonth = month;
+      if (startMonth === 0) {
+        startMonth = 12;
+        startYear -= 1;
+      }
+    } else {
+      if (endMonth > 12) {
+        endMonth = 1;
+        endYear += 1;
+      }
     }
     
-    const curMonthStr = String(month).padStart(2, '0');
-    const nextMonthStr = String(nextMonth).padStart(2, '0');
-    return `${year}.${curMonthStr}.15 ~ ${nextYear}.${nextMonthStr}.14`;
+    const curMonthStr = String(startMonth).padStart(2, '0');
+    const nextMonthStr = String(endMonth).padStart(2, '0');
+    return `${startYear}.${curMonthStr}.15 ~ ${endYear}.${nextMonthStr}.14`;
   };
 
   const ordered = [...tableData].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -111,7 +123,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               </div>
               <h1 className="sc-report-title">법인카드 월간 사용 내역 결산 보고서</h1>
               <div className="sc-report-dates">
-                결산일 {summary.closingDateStr} · 제출일자 {submitDate}
+                제출일자 {submitDate}
               </div>
             </div>
           </div>
@@ -136,7 +148,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
             <div className="sc-meta-row">
               <div className="sc-meta-key">결산 기간</div>
-              <div className="sc-meta-val">{getPeriodString(summary.closingDateStr)}</div>
+              <div className="sc-meta-val">{getPeriodString()}</div>
             </div>
 
             <div className="sc-meta-row">
@@ -213,10 +225,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                   position: 'absolute',
                   top: '-9px',
                   left: '1px',
-                  fontFamily: '"East Sea Dokdo", "Caveat", "Nanum Pen Script", cursive',
-                  fontSize: '34px',
-                  color: 'rgba(71, 85, 105, 0.65)', /* slightly transparent slate */
-                  transform: 'rotate(-3deg)',
+                  fontFamily: '"궁서", "Gungsuh", serif',
+                  fontSize: '28px',
+                  color: 'rgba(71, 85, 105, 0.75)',
+                  transform: 'rotate(-2deg)',
                   pointerEvents: 'none',
                   whiteSpace: 'nowrap',
                   letterSpacing: '3px'
