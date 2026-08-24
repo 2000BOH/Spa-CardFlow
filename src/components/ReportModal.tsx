@@ -107,7 +107,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 <img src="/logo.png" alt="" />
                 <div>
                   <div className="sc-report-org-name">BLUE OCEAN WELLNESS SPA</div>
-                  <div className="sc-report-org-sub">Spa CardFlow 지출 정산 시스템</div>
                 </div>
               </div>
               <h1 className="sc-report-title">법인카드 월간 사용 내역 결산 보고서</h1>
@@ -214,10 +213,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                   position: 'absolute',
                   top: '-9px',
                   left: '1px',
-                  fontFamily: '"East Sea Dokdo", "Nanum Pen Script", cursive',
-                  fontSize: '32px',
-                  color: '#475569',
-                  transform: 'rotate(-4deg)',
+                  fontFamily: '"East Sea Dokdo", "Caveat", "Nanum Pen Script", cursive',
+                  fontSize: '34px',
+                  color: 'rgba(71, 85, 105, 0.65)', /* slightly transparent slate */
+                  transform: 'rotate(-3deg)',
                   pointerEvents: 'none',
                   whiteSpace: 'nowrap',
                   letterSpacing: '3px'
