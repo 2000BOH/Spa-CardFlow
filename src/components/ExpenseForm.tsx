@@ -50,7 +50,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [isOcr, setIsOcr] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!editingItem) return;
@@ -70,7 +71,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
   useEffect(() => {
     if (!autoCamera) return;
-    fileInputRef.current?.click();
+    cameraInputRef.current?.click();
     onAutoCameraHandled?.();
   }, [autoCamera, onAutoCameraHandled]);
 
@@ -187,11 +188,20 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           )}
         </div>
 
+        {/* Camera Input */}
         <input
           type="file"
           accept="image/*"
           capture="environment"
-          ref={fileInputRef}
+          ref={cameraInputRef}
+          onChange={handleImage}
+          style={{ display: 'none' }}
+        />
+        {/* Gallery Input */}
+        <input
+          type="file"
+          accept="image/*"
+          ref={galleryInputRef}
           onChange={handleImage}
           style={{ display: 'none' }}
         />
@@ -221,21 +231,47 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               </button>
             </div>
           ) : (
-            <button
-              type="button"
-              className="sc-dashed"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Camera size={22} strokeWidth={1.7} />
-              <span>
-                <span className="sc-dashed-title" style={{ display: 'block' }}>
-                  영수증 촬영
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                className="sc-dashed"
+                onClick={() => cameraInputRef.current?.click()}
+                style={{ flex: 1 }}
+              >
+                <Camera size={22} strokeWidth={1.7} />
+                <span>
+                  <span className="sc-dashed-title" style={{ display: 'block' }}>
+                    영수증 촬영
+                  </span>
+                  <span className="sc-dashed-sub" style={{ display: 'block' }}>
+                    카메라로 찍기
+                  </span>
                 </span>
-                <span className="sc-dashed-sub" style={{ display: 'block' }}>
-                  금액·결제처를 자동으로 채웁니다
+              </button>
+              
+              <button
+                type="button"
+                className="sc-dashed"
+                onClick={() => galleryInputRef.current?.click()}
+                style={{ flex: 1 }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                </div>
+                <span>
+                  <span className="sc-dashed-title" style={{ display: 'block' }}>
+                    앨범에서 선택
+                  </span>
+                  <span className="sc-dashed-sub" style={{ display: 'block' }}>
+                    갤러리 사진 첨부
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            </div>
           )}
 
           {notice && (
