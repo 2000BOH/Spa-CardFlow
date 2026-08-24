@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
-import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
-import { Download, Image as ImageIcon, X } from 'lucide-react';
+import { exportReportToPDF, exportReportToJPG, printReportWindow } from '../utils/pdfExporter';
+import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -81,6 +81,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
+              style={{ background: '#10b981' }}
+              onClick={printReportWindow}
+            >
+              <Printer size={16} strokeWidth={1.9} />
+              프린트 출력
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary sc-btn-sm"
               style={{ background: '#0284c7' }}
               onClick={() =>
                 exportReportToJPG(
@@ -116,7 +125,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           <div className="sc-report-head">
             <div style={{ minWidth: 0 }}>
               <div className="sc-report-org">
-                <img src="/logo.png" alt="" />
+                <img src="/logo.png?v=2" alt="" />
                 <div>
                   <div className="sc-report-org-name">BLUE OCEAN WELLNESS SPA</div>
                 </div>
