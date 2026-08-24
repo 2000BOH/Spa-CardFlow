@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
-import { exportReportToPDF } from '../utils/pdfExporter';
-import { Download, X } from 'lucide-react';
+import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
+import { Download, Image as ImageIcon, X } from 'lucide-react';
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -41,15 +41,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     const year = parseInt(match[1], 10);
     const month = parseInt(match[2], 10);
     
-    let prevYear = year;
-    let prevMonth = month - 1;
-    if (prevMonth === 0) {
-      prevMonth = 12;
-      prevYear -= 1;
+    let nextYear = year;
+    let nextMonth = month + 1;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
     }
     
-    const prevMonthStr = String(prevMonth).padStart(2, '0');
-    return `${prevYear}.${prevMonthStr}.16 ~ ${closingDateStr}`;
+    const curMonthStr = String(month).padStart(2, '0');
+    const nextMonthStr = String(nextMonth).padStart(2, '0');
+    return `${year}.${curMonthStr}.15 ~ ${nextYear}.${nextMonthStr}.14`;
   };
 
   const ordered = [...tableData].sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -68,6 +69,20 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
+              style={{ background: '#0284c7' }}
+              onClick={() =>
+                exportReportToJPG(
+                  'printable-report-area',
+                  `SpaCardFlow_결산보고서_${summary.closingDateStr}.jpg`
+                )
+              }
+            >
+              <ImageIcon size={16} strokeWidth={1.9} />
+              JPG 저장
+            </button>
+            <button
+              type="button"
+              className="sc-btn sc-btn-primary sc-btn-sm"
               onClick={() =>
                 exportReportToPDF(
                   'printable-report-area',
@@ -76,7 +91,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               }
             >
               <Download size={16} strokeWidth={1.9} />
-              PDF로 저장
+              PDF 저장
             </button>
             <button type="button" className="sc-icon-btn" aria-label="닫기" onClick={onClose}>
               <X size={18} strokeWidth={2} />
@@ -197,15 +212,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 (인)
                 <span style={{
                   position: 'absolute',
-                  top: '-4px',
-                  left: '0px',
-                  fontFamily: '"Nanum Pen Script", "Caveat", "궁서", cursive',
-                  fontSize: '24px',
-                  color: 'rgba(0, 0, 0, 0.75)',
-                  transform: 'rotate(-5deg)',
+                  top: '-3px',
+                  left: '2px',
+                  fontFamily: '"Nanum Pen Script", "Gowun Dodum", "Caveat", "궁서", cursive',
+                  fontSize: '26px',
+                  color: '#64748b',
+                  transform: 'rotate(-2deg)',
                   pointerEvents: 'none',
                   whiteSpace: 'nowrap',
-                  letterSpacing: '2px'
+                  letterSpacing: '3px'
                 }}>
                   이수용
                 </span>
