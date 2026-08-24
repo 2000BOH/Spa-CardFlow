@@ -77,10 +77,10 @@ export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedRes
   };
 
   try {
-    // 한국어 모델 로드 및 텍스트 인식 수행
+    // 한국어 + 영어(숫자 및 로마자 혼용) 모델 로드 및 텍스트 인식 수행
     const { data: { text } } = await Tesseract.recognize(
       imageUrl,
-      'kor',
+      'kor+eng',
       { logger: m => console.log(m) }
     );
 

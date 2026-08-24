@@ -111,9 +111,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         }
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         ctx.drawImage(img, 0, 0, w, h);
+
+        // OCR 인식률 향상을 위한 흑백 + 대비 증가(Binarization) 전처리
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const brightness = 0.34 * data[i] + 0.5 * data[i + 1] + 0.16 * data[i + 2];
+          // 대비 증가 (Thresholding)
+          const contrast = brightness > 120 ? 255 : 0;
+          data[i] = contrast;     // R
+          data[i + 1] = contrast; // G
+          data[i + 2] = contrast; // B
+        }
+        ctx.putImageData(imgData, 0, 0);
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         setReceiptImage(dataUrl);
