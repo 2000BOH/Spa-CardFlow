@@ -75,14 +75,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     <div className="sc-overlay">
       <div className="sc-sheet">
         {/* 툴바 */}
-        <div className="sc-sheet-bar sc-no-print">
-          <div className="sc-sheet-bar-title">결산 보고서</div>
+        <div className="sc-sheet-bar sc-no-print" style={{ justifyContent: 'flex-end' }}>
           <div className="sc-sheet-actions">
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
               style={{ background: '#10b981' }}
-              onClick={printReportWindow}
+              onClick={() => window.print()}
             >
               <Printer size={16} strokeWidth={1.9} />
               프린트 출력
