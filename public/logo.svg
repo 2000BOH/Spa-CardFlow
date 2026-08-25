@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- Background -->
+  <rect width="400" height="400" fill="#e2d2c3" />
+  
+  <!-- Stylized B -->
+  <g fill="#ffffff">
+    <!-- Top loop of B -->
+    <path d="M 120,70 L 220,70 C 270,70 290,90 290,130 C 290,165 260,185 220,190 L 120,190 Z" />
+    
+    <!-- Bottom loop of B -->
+    <path d="M 120,205 L 230,205 C 290,205 310,230 310,270 C 310,315 280,335 220,335 L 120,335 Z" />
+    
+    <!-- White block to cut out the inside of B -->
+    <rect x="155" y="100" width="80" height="65" rx="10" fill="#e2d2c3" />
+    <rect x="155" y="235" width="95" height="70" rx="10" fill="#e2d2c3" />
+
+    <!-- Wavy cut through the middle -->
+    <path d="M 100,180 Q 180,160 250,200 T 330,190 L 330,215 Q 260,225 190,185 T 100,200 Z" fill="#e2d2c3" />
+  </g>
+
+  <!-- Text -->
+  <text x="200" y="370" font-family="Arial, sans-serif" font-weight="900" font-size="28" fill="#ffffff" text-anchor="middle" letter-spacing="3">BLUE OCEAN</text>
+  <text x="200" y="390" font-family="Arial, sans-serif" font-weight="500" font-size="14" fill="#ffffff" text-anchor="middle" letter-spacing="4" opacity="0.8">WELLNESS SPA</text>
+</svg>

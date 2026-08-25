@@ -145,7 +145,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           <div className="sc-report-head">
             <div style={{ minWidth: 0 }}>
               <div className="sc-report-org">
-                <img src="/logo.png?v=2" alt="" />
+                <img src="/logo.svg" alt="" />
                 <div>
                   <div className="sc-report-org-name">BLUE OCEAN WELLNESS SPA</div>
                 </div>

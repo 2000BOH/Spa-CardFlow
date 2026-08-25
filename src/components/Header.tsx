@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onOpenReport, r
     <header className="sc-header">
       <div className="sc-header-in">
         <div className="sc-brand">
-          <img src="/logo.png" alt="블루오션 웰니스 스파" />
+          <img src="/logo.svg" alt="블루오션 웰니스 스파" />
           <div style={{ minWidth: 0 }}>
             <div className="sc-brand-title">{title}</div>
             <div className="sc-brand-sub">{today}</div>
