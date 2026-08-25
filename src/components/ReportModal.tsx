@@ -81,7 +81,28 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
               style={{ background: '#10b981' }}
-              onClick={() => window.print()}
+              onClick={() => {
+                const reportEl = document.getElementById('printable-report-area');
+                if (!reportEl) return;
+                const printWin = window.open('', '_blank', 'width=800,height=600');
+                if (!printWin) {
+                  alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
+                  return;
+                }
+                printWin.document.write(`
+                  <html><head><title>결산 보고서 출력</title>
+                  <style>
+                    body { margin: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+                    img { max-width: 60px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    td, th { border: 1px solid #ddd; padding: 8px; }
+                  </style>
+                  </head><body>${reportEl.innerHTML}</body></html>
+                `);
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+              }}
             >
               <Printer size={16} strokeWidth={1.9} />
               프린트 출력
