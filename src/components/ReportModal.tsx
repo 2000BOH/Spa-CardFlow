@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
-import { exportReportToPDF, exportReportToJPG, printReportWindow } from '../utils/pdfExporter';
+import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
 import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
 
 interface ReportModalProps {

@@ -49,6 +49,9 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [notice, setNotice] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isOcr, setIsOcr] = useState(false);
+  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [isReceiptExpanded, setIsReceiptExpanded] = useState(true);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +99,12 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      const rawUrl = event.target?.result as string;
+      // 1. 원본 컬러 선명한 이미지를 미리보기 및 저장용으로 보관
+      setReceiptImage(rawUrl);
+      setReceiptFile(file);
+      setIsReceiptExpanded(true);
+
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
@@ -113,39 +122,38 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         canvas.height = h;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
+
+        // 원본 드로잉 (OCR 전처리 전)
         ctx.drawImage(img, 0, 0, w, h);
 
-        // OCR 인식률 향상을 위한 흑백 + 대비 증가(Binarization) 전처리
+        // 2. OCR 인식 전용 흑백 대비 전처리 (캔버스에서만 사용)
         const imgData = ctx.getImageData(0, 0, w, h);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
           const brightness = 0.34 * data[i] + 0.5 * data[i + 1] + 0.16 * data[i + 2];
-          // 대비 증가 (Thresholding)
           const contrast = brightness > 120 ? 255 : 0;
-          data[i] = contrast;     // R
-          data[i + 1] = contrast; // G
-          data[i + 2] = contrast; // B
+          data[i] = contrast;
+          data[i + 1] = contrast;
+          data[i + 2] = contrast;
         }
         ctx.putImageData(imgData, 0, 0);
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        setReceiptImage(dataUrl);
-        setReceiptFile(file);
+        const ocrDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
         setIsOcr(true);
-        setNotice('영수증을 읽고 있습니다. 3~5초 걸립니다.');
+        setNotice('영수증 텍스트를 자동 분석 중입니다…');
         try {
-          const parsed = await parseRealReceiptImage(dataUrl);
+          const parsed = await parseRealReceiptImage(ocrDataUrl);
           if (parsed.amount > 0) setAmount(String(parsed.amount));
           if (parsed.storeName) setStoreName(parsed.storeName);
-          setNotice('자동 인식이 끝났습니다. 빈칸을 확인해 주세요.');
+          setNotice('✨ 영수증 자동 인식이 완료되었습니다! 아래 영수증 화면을 보면서 내용을 확인해 주세요.');
         } catch {
-          setNotice('영수증을 읽지 못했습니다. 직접 입력해 주세요.');
+          setNotice('💡 영수증 문자가 불명확하여 자동 추출되지 않았습니다. 상단 영수증 이미지를 보면서 직접 입력해 주세요.');
         } finally {
           setIsOcr(false);
         }
       };
-      img.src = event.target?.result as string;
+      img.src = rawUrl;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -221,27 +229,119 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         <div className="sc-stack">
           {receiptImage ? (
-            <div className="sc-attached">
-              <img src={receiptImage} alt="영수증" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15, fontWeight: 500 }}>
-                  {isOcr ? '영수증 분석 중…' : '영수증 첨부됨'}
+            <div 
+              style={{
+                background: '#f8fafc',
+                border: '1.5px solid #cbd5e1',
+                borderRadius: '12px',
+                padding: '12px',
+                marginBottom: '8px'
+              }}
+            >
+              {/* 영수증 뷰어 툴바 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>📄 첨부 영수증 원본</span>
+                  <span style={{ fontSize: '12px', color: '#64748b', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px' }}>
+                    {isOcr ? '분석중' : '입력참고용'}
+                  </span>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 2 }}>
-                  보고서에 함께 보관됩니다
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsZoomModalOpen(true)}
+                    style={{
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    🔍 크게 확대해서 보기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsReceiptExpanded(!isReceiptExpanded)}
+                    style={{
+                      background: '#e2e8f0',
+                      color: '#334155',
+                      border: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {isReceiptExpanded ? '▲ 접기' : '▼ 펼치기'}
+                  </button>
+                  <button
+                    type="button"
+                    className="sc-icon-btn"
+                    aria-label="영수증 삭제"
+                    onClick={() => {
+                      setReceiptImage('');
+                      setReceiptFile(null);
+                    }}
+                    style={{ color: '#ef4444' }}
+                  >
+                    <Trash2 size={16} strokeWidth={1.8} />
+                  </button>
                 </div>
               </div>
-              <button
-                type="button"
-                className="sc-icon-btn"
-                aria-label="영수증 삭제"
-                onClick={() => {
-                  setReceiptImage('');
-                  setReceiptFile(null);
-                }}
-              >
-                <Trash2 size={17} strokeWidth={1.8} />
-              </button>
+
+              {/* 영수증 프리뷰 영상 영역 */}
+              {isReceiptExpanded && (
+                <div 
+                  style={{
+                    position: 'relative',
+                    maxHeight: '360px',
+                    overflowY: 'auto',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    background: '#000000',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setIsZoomModalOpen(true)}
+                  title="클릭 시 화면 확대"
+                >
+                  <img 
+                    src={receiptImage} 
+                    alt="영수증 원본" 
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '350px',
+                      objectFit: 'contain',
+                      borderRadius: '4px'
+                    }}
+                  />
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '8px',
+                      background: 'rgba(0,0,0,0.7)',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    🔍 터치 시 전체화면 확대
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -445,6 +545,103 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
           </button>
         )}
       </div>
+
+      {/* 영수증 원본 전체화면 확대 모달 */}
+      {isZoomModalOpen && receiptImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '16px'
+          }}
+          onClick={() => setIsZoomModalOpen(false)}
+        >
+          {/* 모달 상단 헤더 */}
+          <div 
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: '#ffffff',
+              zIndex: 100000
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span style={{ fontSize: '16px', fontWeight: 700 }}>🔍 영수증 원본 크게 보기</span>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(prev => Math.max(0.8, prev - 0.3))}
+                style={{ background: '#334155', color: '#fff', border: 'none', width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px', fontWeight: 700 }}
+              >
+                -
+              </button>
+              <span style={{ fontSize: '13px', color: '#cbd5e1' }}>{Math.round(zoomLevel * 100)}%</span>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.3))}
+                style={{ background: '#334155', color: '#fff', border: 'none', width: '32px', height: '32px', borderRadius: '50%', fontSize: '16px', fontWeight: 700 }}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(1)}
+                style={{ background: '#475569', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}
+              >
+                초기화
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsZoomModalOpen(false)}
+                style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: 700, marginLeft: '8px' }}
+              >
+                ✕ 닫기
+              </button>
+            </div>
+          </div>
+
+          {/* 이미지 영역 */}
+          <div 
+            style={{
+              flex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              overflow: 'auto',
+              margin: '16px 0'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img 
+              src={receiptImage} 
+              alt="영수증 원본 확대" 
+              style={{
+                transform: `scale(${zoomLevel})`,
+                transition: 'transform 0.15s ease-out',
+                maxWidth: '90%',
+                maxHeight: '85vh',
+                objectFit: 'contain',
+                borderRadius: '8px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+              }}
+            />
+          </div>
+
+          <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+            💡 영수증 세부내역(상호명, 결제금액, 품목 등)을 확인하시면서 폼에 직접 입력해 주세요. (바깥 영역 터치 시 닫힘)
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
