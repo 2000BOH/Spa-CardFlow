@@ -25,6 +25,10 @@ const saveLocalData = (data: ExpenseItem[]) => {
  * 1. 전체 지출 내역 조회 (Read) - Offline First
  */
 export async function fetchExpenses(): Promise<ExpenseItem[]> {
+  if (!supabase) {
+    return getLocalData();
+  }
+
   try {
     const { data, error } = await supabase
       .from('expenses')
@@ -68,6 +72,11 @@ export async function createExpense(item: Omit<ExpenseItem, 'id' | 'createdAt'>)
     createdAt: new Date().toISOString()
   };
 
+  if (!supabase) {
+    saveLocalData([newItem, ...localData]);
+    return newItem;
+  }
+
   try {
     const payload = {
       store_name: item.storeName,
@@ -109,8 +118,7 @@ export async function updateExpense(id: string, item: Partial<Omit<ExpenseItem, 
   const updatedLocal = localData.map(ex => ex.id === id ? { ...ex, ...item } as ExpenseItem : ex);
   saveLocalData(updatedLocal);
 
-  if (id.startsWith('local_')) {
-    // 로컬에만 있는 데이터면 여기서 종료
+  if (!supabase || id.startsWith('local_')) {
     return;
   }
 
@@ -140,7 +148,7 @@ export async function deleteExpense(id: string): Promise<void> {
   const localData = getLocalData();
   saveLocalData(localData.filter(ex => ex.id !== id));
 
-  if (id.startsWith('local_')) return;
+  if (!supabase || id.startsWith('local_')) return;
 
   try {
     await supabase.from('expenses').delete().eq('id', id);
@@ -150,6 +158,8 @@ export async function deleteExpense(id: string): Promise<void> {
 }
 
 export async function uploadReceiptImage(file: File): Promise<string | null> {
+  if (!supabase) return null;
+
   try {
     const fileExt = file.name.split('.').pop() || 'jpg';
     const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
