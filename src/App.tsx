@@ -45,13 +45,18 @@ export function App() {
   const [receipt, setReceipt] = useState({ open: false, url: '', title: '' });
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       try {
         setExpenses(await fetchExpenses());
       } catch (err) {
         console.error('Failed to load data:', err);
       }
-    })();
+    };
+    load();
+
+    // 모바일 <-> PC 실시간 연동 (10초 주기 데이터 자동 동기화)
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const summary = calculateBudgetSummary(expenses);
