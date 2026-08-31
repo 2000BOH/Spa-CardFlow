@@ -12,6 +12,8 @@ import { BottomTabs } from './components/BottomTabs';
 import type { TabKey } from './components/BottomTabs';
 import { Camera, PenLine } from 'lucide-react';
 
+import { isSupabaseConfigured } from './utils/supabase';
+
 /** 768px 이상이면 데스크톱 레이아웃 */
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(
@@ -47,16 +49,19 @@ export function App() {
   useEffect(() => {
     const load = async () => {
       try {
-        setExpenses(await fetchExpenses());
+        const loaded = await fetchExpenses();
+        setExpenses(loaded);
       } catch (err) {
         console.error('Failed to load data:', err);
       }
     };
     load();
 
-    // 모바일 <-> PC 실시간 연동 (10초 주기 데이터 자동 동기화)
-    const interval = setInterval(load, 10000);
-    return () => clearInterval(interval);
+    // Supabase가 올바르게 연결되었을 때만 10초 주기 실시간 폴링 (오프라인 모드 데이터 유실 방지)
+    if (isSupabaseConfigured) {
+      const interval = setInterval(load, 10000);
+      return () => clearInterval(interval);
+    }
   }, []);
 
   const summary = calculateBudgetSummary(expenses);

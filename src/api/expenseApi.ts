@@ -1,7 +1,7 @@
 import { supabase } from '../utils/supabase';
 import type { ExpenseItem } from '../types/expense';
 
-const LOCAL_STORAGE_KEY = 'spaflow_expenses_offline';
+const LOCAL_STORAGE_KEY = 'blue_ocean_card_expenses_v2';
 
 // 로컬 스토리지 유틸리티
 const getLocalData = (): ExpenseItem[] => {
