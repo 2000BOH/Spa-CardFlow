@@ -31,7 +31,7 @@ export async function fetchExpenses(): Promise<ExpenseItem[]> {
 
   try {
     const { data, error } = await supabase
-      .from('expenses')
+      .from('cardflow_expenses')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -100,7 +100,7 @@ export async function createExpense(item: Omit<ExpenseItem, 'id' | 'createdAt'>)
     };
 
     const { data, error } = await supabase
-      .from('expenses')
+      .from('cardflow_expenses')
       .insert([payload])
       .select()
       .single();
@@ -143,7 +143,7 @@ export async function updateExpense(id: string, item: Partial<Omit<ExpenseItem, 
     if (item.note !== undefined) payload.note = item.note;
     if (item.receiptImage !== undefined) payload.receipt_image_url = item.receiptImage;
 
-    await supabase.from('expenses').update(payload).eq('id', id);
+    await supabase.from('cardflow_expenses').update(payload).eq('id', id);
   } catch (err) {
     console.warn('서버 수정 실패. 오프라인 모드에서는 수정이 유지됩니다.');
   }
@@ -159,7 +159,7 @@ export async function deleteExpense(id: string): Promise<void> {
   if (!supabase || id.startsWith('local_')) return;
 
   try {
-    await supabase.from('expenses').delete().eq('id', id);
+    await supabase.from('cardflow_expenses').delete().eq('id', id);
   } catch (err) {
     console.warn('서버 삭제 실패. 오프라인 모드에서는 삭제가 유지됩니다.');
   }
@@ -170,7 +170,7 @@ export async function uploadReceiptImage(file: File): Promise<string | null> {
 
   try {
     const fileExt = file.name.split('.').pop() || 'jpg';
-    const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `cardflow_receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const { error } = await supabase.storage.from('receipts').upload(fileName, file);
     if (error) return null;
     const { data } = supabase.storage.from('receipts').getPublicUrl(fileName);
