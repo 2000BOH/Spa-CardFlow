@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Cloud, CloudOff } from 'lucide-react';
+import { isSupabaseConfigured } from '../utils/supabase';
 
 interface HeaderProps {
   title: string;
@@ -24,8 +25,19 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onOpenReport, r
       <div className="sc-header-in">
         <div className="sc-brand">
           <img src="/logo.svg" alt="블루오션 웰니스 스파" />
-          <div style={{ minWidth: 0 }}>
-            <div className="sc-brand-title">{title}</div>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div className="sc-brand-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {title}
+              {isSupabaseConfigured ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#10b981', background: '#ecfdf5', padding: '2px 6px', borderRadius: '12px' }}>
+                  <Cloud size={10} /> 연동중
+                </span>
+              ) : (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '10px', color: '#ef4444', background: '#fef2f2', padding: '2px 6px', borderRadius: '12px' }}>
+                  <CloudOff size={10} /> 오프라인 (연결안됨)
+                </span>
+              )}
+            </div>
             <div className="sc-brand-sub">{today}</div>
           </div>
         </div>
