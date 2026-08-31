@@ -63,8 +63,12 @@ export async function fetchExpenses(): Promise<ExpenseItem[]> {
     // 서버 데이터를 성공적으로 불러오면 로컬도 동기화
     saveLocalData(combinedData);
     return combinedData;
-  } catch (err) {
-    console.warn('서버 연결 실패. 오프라인 모드 데이터(LocalStorage)를 로드합니다.');
+  } catch (err: any) {
+    console.warn('서버 연결 실패. 오프라인 모드 데이터(LocalStorage)를 로드합니다.', err);
+    if (typeof window !== 'undefined' && !window.sessionStorage.getItem('fetch_error_shown')) {
+      alert(`[데이터 불러오기 실패]\n원인: ${err.message || JSON.stringify(err)}\n\n(이 메시지는 접속 시 1회만 표시됩니다.)`);
+      window.sessionStorage.setItem('fetch_error_shown', 'true');
+    }
     return getLocalData();
   }
 }
@@ -111,8 +115,12 @@ export async function createExpense(item: Omit<ExpenseItem, 'id' | 'createdAt'>)
     newItem.createdAt = data.created_at;
     saveLocalData([newItem, ...localData]);
     return newItem;
-  } catch (err) {
-    console.warn('서버 저장 실패. 오프라인 모드로 안전하게 저장합니다.');
+  } catch (err: any) {
+    console.warn('서버 저장 실패. 오프라인 모드로 안전하게 저장합니다.', err);
+    // 디버깅을 위해 사용자에게 직접 에러를 보여줍니다.
+    if (typeof window !== 'undefined') {
+      alert(`[서버 연동 실패]\n원인: ${err.message || JSON.stringify(err)}\n\n(데이터는 현재 기기에만 안전하게 저장되었습니다.)`);
+    }
     saveLocalData([newItem, ...localData]);
     return newItem;
   }
