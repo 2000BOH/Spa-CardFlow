@@ -52,9 +52,17 @@ export async function fetchExpenses(): Promise<ExpenseItem[]> {
       createdAt: row.created_at,
     }));
 
+    // 로컬에만 있는(아직 서버에 못올라간) 데이터 보존 처리
+    const localData = getLocalData();
+    const unsyncedLocal = localData.filter(item => item.id.startsWith('local_'));
+    
+    // 서버 데이터 + 미동기화 로컬 데이터 병합
+    const combinedData = [...unsyncedLocal, ...parsedData];
+    combinedData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     // 서버 데이터를 성공적으로 불러오면 로컬도 동기화
-    saveLocalData(parsedData);
-    return parsedData;
+    saveLocalData(combinedData);
+    return combinedData;
   } catch (err) {
     console.warn('서버 연결 실패. 오프라인 모드 데이터(LocalStorage)를 로드합니다.');
     return getLocalData();
