@@ -49,6 +49,7 @@ export async function fetchExpenses(): Promise<ExpenseItem[]> {
       purpose: row.purpose,
       note: row.note,
       receiptImage: row.receipt_image_url,
+      directedBy: row.directed_by || 'none',
       createdAt: row.created_at,
     }));
 
@@ -101,6 +102,7 @@ export async function createExpense(item: Omit<ExpenseItem, 'id' | 'createdAt'>)
       purpose: item.purpose,
       note: item.note,
       receipt_image_url: item.receiptImage,
+      directed_by: item.directedBy || 'none',
     };
 
     const { data, error } = await supabase
@@ -150,6 +152,7 @@ export async function updateExpense(id: string, item: Partial<Omit<ExpenseItem, 
     if (item.purpose !== undefined) payload.purpose = item.purpose;
     if (item.note !== undefined) payload.note = item.note;
     if (item.receiptImage !== undefined) payload.receipt_image_url = item.receiptImage;
+    if (item.directedBy !== undefined) payload.directed_by = item.directedBy;
 
     await supabase.from('cardflow_expenses').update(payload).eq('id', id);
   } catch (err) {

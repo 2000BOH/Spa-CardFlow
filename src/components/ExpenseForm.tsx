@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ExpenseCategory, ExpenseItem } from '../types/expense';
+import type { ExpenseCategory, ExpenseItem, DirectedBy } from '../types/expense';
 import { parseRealReceiptImage } from '../utils/ocrParser';
 import { uploadReceiptImage } from '../api/expenseApi';
 import { Camera, Info, Loader2, Trash2 } from 'lucide-react';
@@ -45,6 +45,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
   const [note, setNote] = useState('');
   const [receiptImage, setReceiptImage] = useState('');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [directedBy, setDirectedBy] = useState<DirectedBy>('none');
 
   const [notice, setNotice] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -69,6 +70,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setNote(editingItem.note ?? '');
     setReceiptImage(editingItem.receiptImage ?? '');
     setReceiptFile(null);
+    setDirectedBy(editingItem.directedBy ?? 'none');
     setNotice(null);
   }, [editingItem]);
 
@@ -90,6 +92,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setNote('');
     setReceiptImage('');
     setReceiptFile(null);
+    setDirectedBy('none');
     setNotice(null);
   };
 
@@ -184,7 +187,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         category,
         purpose: purpose.trim() || '사용 목적 미기입',
         note: note.trim(),
-        receiptImage: finalImage || undefined
+        receiptImage: finalImage || undefined,
+        directedBy
       });
 
       reset();
@@ -408,6 +412,39 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
+          </div>
+
+          {/* 임원 지시 사용 구분 */}
+          <div>
+            <label className="sc-label">사용 구분</label>
+            <div className="sc-chips-wrap">
+              <button
+                type="button"
+                onClick={() => setDirectedBy('none')}
+                className={directedBy === 'none' ? 'sc-chip sc-chip-blue' : 'sc-chip'}
+              >
+                일반 사용
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirectedBy('ceo')}
+                className={directedBy === 'ceo' ? 'sc-chip sc-chip-directed sc-chip-directed-ceo' : 'sc-chip'}
+              >
+                🏢 대표님 지시
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirectedBy('chairman')}
+                className={directedBy === 'chairman' ? 'sc-chip sc-chip-directed sc-chip-directed-chairman' : 'sc-chip'}
+              >
+                👔 회장님 지시
+              </button>
+            </div>
+            {directedBy !== 'none' && (
+              <div className="sc-directed-notice">
+                ⚡ 임원 지시 사용은 개인 한도(30만 원)에 포함되지 않으며, 보고서에 별도 표기됩니다.
+              </div>
+            )}
           </div>
 
           <div>

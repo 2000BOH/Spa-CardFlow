@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
+import { isDirectedExpense, getDirectedBy } from '../types/expense';
 import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
 import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
 
@@ -12,8 +13,13 @@ interface ReportModalProps {
 
 const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
 
-// 메타 정보 불필요해짐 (하드코딩)
-
+/** 임원 지시 라벨 */
+const directedLabel = (item: ExpenseItem): string => {
+  const d = getDirectedBy(item);
+  if (d === 'ceo') return '🏢 대표 지시';
+  if (d === 'chairman') return '👔 회장 지시';
+  return '';
+};
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expenses, summary }) => {
   const [editing, setEditing] = useState(false);
@@ -23,11 +29,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
       date: e.date,
       amount: won(e.amount),
       purpose: e.purpose,
-      note: e.note || ''
+      note: e.note || '',
+      directedBy: getDirectedBy(e)
     }))
   );
 
   if (!isOpen) return null;
+
+  // 개인 사용 / 임원 지시 사용 분리
+  const personalExpenses = expenses.filter(e => !isDirectedExpense(e));
+  const directedExpenses = expenses.filter(e => isDirectedExpense(e));
+
+  const personalTableData = tableData.filter(t => t.directedBy === 'none');
+  const directedTableData = tableData.filter(t => t.directedBy !== 'none');
+
+  const personalTotal = personalExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const directedTotal = directedExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   const submitDate = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -65,11 +82,51 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     return `${startYear}.${curMonthStr}.15 ~ ${endYear}.${nextMonthStr}.14`;
   };
 
-  const ordered = [...tableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedPersonal = [...personalTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedDirected = [...directedTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const handleTableChange = (id: string, field: string, value: string) => {
     setTableData(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
+
+  /** 공통 테이블 행 렌더링 */
+  const renderRows = (items: typeof tableData, isDirected: boolean) =>
+    items.map((item) => {
+      const original = expenses.find(e => e.id === item.id);
+      const badge = original ? directedLabel(original) : '';
+      return (
+        <div
+          key={item.id}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: isDirected ? '1fr 1fr 2fr 1.5fr 1fr' : '1fr 1fr 2fr 2fr',
+            padding: '12px 16px',
+            borderBottom: '1px solid #f1f5f9',
+            fontSize: '14px',
+            alignItems: 'center',
+            background: isDirected ? '#fffbeb' : undefined
+          }}
+        >
+          {editing ? (
+            <>
+              <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+              <input className="sc-input" value={item.amount} onChange={e => handleTableChange(item.id, 'amount', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+              <input className="sc-input" value={item.purpose} onChange={e => handleTableChange(item.id, 'purpose', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+              <input className="sc-input" value={item.note} onChange={e => handleTableChange(item.id, 'note', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+              {isDirected && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>{badge}</span>}
+            </>
+          ) : (
+            <>
+              <span>{item.date}</span>
+              <span>{item.amount}</span>
+              <span>{item.purpose}</span>
+              <span style={{ color: 'var(--muted)' }}>{item.note || '-'}</span>
+              {isDirected && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>{badge}</span>}
+            </>
+          )}
+        </div>
+      );
+    });
 
   return (
     <div className="sc-overlay">
@@ -181,6 +238,24 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </div>
 
             <div className="sc-meta-row">
+              <div className="sc-meta-total-key">개인 사용 소계</div>
+              <div className="sc-meta-total-val">
+                <span className="num">{won(personalTotal)}</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>({personalExpenses.length}건 · 한도 {won(summary.monthlyBudget)})</span>
+              </div>
+            </div>
+
+            {directedExpenses.length > 0 && (
+              <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+                <div className="sc-meta-total-key" style={{ color: '#d97706' }}>⚡ 임원 지시 소계</div>
+                <div className="sc-meta-total-val">
+                  <span className="num" style={{ color: '#d97706' }}>{won(directedTotal)}</span>
+                  <span style={{ fontSize: 13, color: '#b45309' }}>{directedExpenses.length}건 · 한도 별도</span>
+                </div>
+              </div>
+            )}
+
+            <div className="sc-meta-row">
               <div className="sc-meta-total-key">총 집행액</div>
               <div className="sc-meta-total-val">
                 <span className="num">{won(summary.currentSpend)}</span>
@@ -190,9 +265,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           </div>
 
 
-          {/* 2. 사용 내역 세부 명세 */}
+          {/* 2. 개인 사용 내역 세부 명세 */}
           <div className="sc-section-head">
-            <h2 className="sc-section-title">2. 세부사용 내역</h2>
+            <h2 className="sc-section-title">2-1. 개인 사용 내역 (한도 내)</h2>
             <button
               type="button"
               className="sc-link sc-no-print"
@@ -202,8 +277,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </button>
           </div>
 
-          {ordered.length === 0 ? (
-            <div className="sc-blankbox">등록된 결제 내역이 없습니다</div>
+          {orderedPersonal.length === 0 ? (
+            <div className="sc-blankbox">개인 사용 결제 내역이 없습니다</div>
           ) : (
             <div className="sc-detail">
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 2fr', fontWeight: 600, padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', color: '#475569' }}>
@@ -213,31 +288,51 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 <span>비고</span>
               </div>
 
-              {ordered.map((item) => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 2fr', padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '14px', alignItems: 'center' }}>
-                  {editing ? (
-                    <>
-                      <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-                      <input className="sc-input" value={item.amount} onChange={e => handleTableChange(item.id, 'amount', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-                      <input className="sc-input" value={item.purpose} onChange={e => handleTableChange(item.id, 'purpose', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-                      <input className="sc-input" value={item.note} onChange={e => handleTableChange(item.id, 'note', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-                    </>
-                  ) : (
-                    <>
-                      <span>{item.date}</span>
-                      <span>{item.amount}</span>
-                      <span>{item.purpose}</span>
-                      <span style={{ color: 'var(--muted)' }}>{item.note || '-'}</span>
-                    </>
-                  )}
-                </div>
-              ))}
+              {renderRows(orderedPersonal, false)}
 
               <div className="sc-detail-sum">
-                <span className="sc-detail-sum-label">합 계</span>
-                <span className="sc-detail-sum-value">{won(summary.currentSpend)}</span>
+                <span className="sc-detail-sum-label">개인 소계</span>
+                <span className="sc-detail-sum-value">{won(personalTotal)}</span>
               </div>
             </div>
+          )}
+
+          {/* 2-2. 임원 지시 사용 내역 (한도 외) — 눈에 띄게 강조 */}
+          {directedExpenses.length > 0 && (
+            <>
+              <div className="sc-section-head" style={{ marginTop: '32px' }}>
+                <h2 className="sc-section-title" style={{ color: '#d97706' }}>
+                  ⚡ 2-2. 임원 지시 사용 내역 (한도 외)
+                </h2>
+              </div>
+
+              <div className="sc-detail" style={{ border: '2px solid #f59e0b', borderRadius: '12px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 2fr 1.5fr 1fr',
+                  fontWeight: 600,
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #fcd34d',
+                  background: '#fef3c7',
+                  fontSize: '13px',
+                  color: '#92400e',
+                  borderRadius: '10px 10px 0 0'
+                }}>
+                  <span>일자</span>
+                  <span>금액</span>
+                  <span>사용목적</span>
+                  <span>비고</span>
+                  <span>지시자</span>
+                </div>
+
+                {renderRows(orderedDirected, true)}
+
+                <div className="sc-detail-sum" style={{ background: '#fef3c7', color: '#92400e' }}>
+                  <span className="sc-detail-sum-label">임원 지시 소계</span>
+                  <span className="sc-detail-sum-value" style={{ color: '#d97706' }}>{won(directedTotal)}</span>
+                </div>
+              </div>
+            </>
           )}
 
           {/* 서명 */}

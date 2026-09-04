@@ -1,4 +1,5 @@
 import type { BudgetSummary, ExpenseItem } from '../types/expense';
+import { isDirectedExpense } from '../types/expense';
 import { INITIAL_EXPENSES, INITIAL_MONTHLY_BUDGET, PREV_MONTH_SPEND } from '../data/mockExpenses';
 
 /* 샘플 데이터가 남아 있던 이전 저장소(v1)를 버리기 위해 키를 v2로 올림 */
@@ -34,8 +35,24 @@ export function setMonthlyBudget(value: number): void {
 
 export function calculateBudgetSummary(expenses: ExpenseItem[]): BudgetSummary {
   const monthlyBudget = getMonthlyBudget();
-  const currentSpend = expenses.reduce((sum, item) => sum + item.amount, 0);
-  const remainingBudget = monthlyBudget - currentSpend;
+
+  // 개인 사용 vs 임원 지시 사용 분리 계산
+  let personalSpend = 0;
+  let directedSpend = 0;
+  let directedCount = 0;
+
+  for (const item of expenses) {
+    if (isDirectedExpense(item)) {
+      directedSpend += item.amount;
+      directedCount += 1;
+    } else {
+      personalSpend += item.amount;
+    }
+  }
+
+  const currentSpend = personalSpend + directedSpend;
+  // 남은 한도는 개인 사용분만 기준 (임원 지시 사용은 한도 별도)
+  const remainingBudget = monthlyBudget - personalSpend;
 
   const today = new Date();
   const year = today.getFullYear();
@@ -57,6 +74,9 @@ export function calculateBudgetSummary(expenses: ExpenseItem[]): BudgetSummary {
   return {
     monthlyBudget,
     currentSpend,
+    personalSpend,
+    directedSpend,
+    directedCount,
     remainingBudget,
     daysUntilClosing,
     closingDateStr,
@@ -65,3 +85,4 @@ export function calculateBudgetSummary(expenses: ExpenseItem[]): BudgetSummary {
     spendDiffPercent
   };
 }
+

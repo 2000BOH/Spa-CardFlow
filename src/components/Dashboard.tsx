@@ -9,14 +9,17 @@ interface DashboardProps {
 const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
 
 export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
+  // 한도 비율은 '개인 사용분'만 기준으로 계산 (임원 지시 사용은 한도 별도)
   const usagePct =
     summary.monthlyBudget > 0
-      ? Math.min(100, Math.round((summary.currentSpend / summary.monthlyBudget) * 100))
+      ? Math.min(100, Math.round((summary.personalSpend / summary.monthlyBudget) * 100))
       : 0;
 
   const hasPrev = summary.prevMonthSpend > 0;
   const up = summary.spendDiff >= 0;
   const diffText = hasPrev ? `${up ? '+' : ''}${summary.spendDiffPercent}%` : '—';
+
+  const hasDirected = summary.directedSpend > 0;
 
   const stats = (onDark: boolean) => (
     <>
@@ -57,8 +60,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
       <section className="sc-hero">
         <div className="sc-hero-in">
           <div>
-            <div className="sc-hero-label">이번 달 사용 금액</div>
-            <div className="sc-hero-amount">{won(summary.currentSpend)}</div>
+            <div className="sc-hero-label">이번 달 개인 사용</div>
+            <div className="sc-hero-amount">{won(summary.personalSpend)}</div>
 
             <div className="sc-bar">
               <i style={{ width: `${usagePct}%` }} />
@@ -79,6 +82,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
 
       {/* 모바일: 흰 배경으로 분리한 3칸 */}
       <div className="sc-stats sc-only-mobile">{stats(false)}</div>
+
+      {/* 임원 지시 사용 요약 배너 (1건 이상일 때만 표시) */}
+      {hasDirected && (
+        <div className="sc-directed-summary">
+          <div className="sc-directed-summary-icon">⚡</div>
+          <div className="sc-directed-summary-body">
+            <div className="sc-directed-summary-title">임원 지시 사용</div>
+            <div className="sc-directed-summary-detail">
+              <span className="sc-directed-summary-amount">{won(summary.directedSpend)}</span>
+              <span className="sc-directed-summary-count">{summary.directedCount}건</span>
+              <span className="sc-directed-summary-note">· 개인 한도 별도</span>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

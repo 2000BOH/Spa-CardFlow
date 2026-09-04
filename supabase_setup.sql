@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   purpose text,
   note text,
   receipt_image_url text,
+  directed_by text DEFAULT 'none',
   created_at timestamp with time zone DEFAULT now()
 );
 
@@ -26,6 +27,8 @@ ALTER TABLE expenses ADD COLUMN IF NOT EXISTS category text;
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS purpose text;
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS note text;
 ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_image_url text;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS directed_by text DEFAULT 'none';
 
 -- 3. RLS(보안 정책)를 완전히 해제하여 누구나 읽고 쓸 수 있게 만듭니다.
 ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
+

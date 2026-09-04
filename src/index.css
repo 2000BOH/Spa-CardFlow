@@ -1562,3 +1562,119 @@ textarea.sc-input {
     border-radius: 0;
   }
 }
+
+/* ══════════════════════════════ 임원 지시 사용 ══════════════════════════════ */
+
+/* 입력 폼 — 임원 지시 선택 칩 (활성화 시) */
+.sc-chip-directed {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+.sc-chip-directed-ceo {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+}
+.sc-chip-directed-chairman {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+/* 입력 폼 — 임원 지시 안내 문구 */
+.sc-directed-notice {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #92400e;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* 리스트 — 임원 지시 행 배경색 */
+.sc-row-directed {
+  background: #fffbeb !important;
+  border-left: 3px solid #f59e0b !important;
+}
+
+/* 리스트/데스크톱 — 임원 지시 배지 */
+.sc-directed-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+  letter-spacing: 0;
+}
+
+/* 필터 칩 — 임원지시 (활성화) */
+.sc-chip-directed-filter {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+/* 대시보드 — 임원 지시 요약 배너 */
+.sc-directed-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1.5px solid #fcd34d;
+  border-radius: 14px;
+  margin-top: 12px;
+}
+@media (max-width: 767px) {
+  .sc-directed-summary {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+}
+.sc-directed-summary-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sc-directed-summary-body {
+  flex: 1;
+  min-width: 0;
+}
+.sc-directed-summary-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 2px;
+}
+.sc-directed-summary-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sc-directed-summary-amount {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 700;
+  color: #d97706;
+  letter-spacing: -0.02em;
+}
+.sc-directed-summary-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #b45309;
+}
+.sc-directed-summary-note {
+  font-size: 12px;
+  color: #92400e;
+  opacity: 0.7;
+}

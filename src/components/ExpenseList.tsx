@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ExpenseItem, ExpenseCategory } from '../types/expense';
+import { isDirectedExpense, getDirectedBy } from '../types/expense';
 import { Search, ChevronRight, Store, Receipt } from 'lucide-react';
 
 const CATEGORIES: ExpenseCategory[] = [
@@ -15,6 +16,14 @@ const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
 const shortCat = (c: string) => c.split('/').slice(0, 2).join('/');
 const mobileDate = (d: string) => d.slice(5).replace('-', '월 ') + '일';
 const deskDate = (d: string) => d.slice(5).replace('-', '. ');
+
+/** 임원 지시 라벨 */
+const directedLabel = (item: ExpenseItem): string | null => {
+  const d = getDirectedBy(item);
+  if (d === 'ceo') return '🏢 대표 지시';
+  if (d === 'chairman') return '👔 회장 지시';
+  return null;
+};
 
 interface ExpenseListProps {
   expenses: ExpenseItem[];
@@ -42,7 +51,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   const q = searchTerm.trim().toLowerCase();
   const filtered = expenses.filter((item) => {
-    if (category !== 'ALL' && item.category !== category) return false;
+    // '임원지시' 필터 처리
+    if (category === 'DIRECTED' && !isDirectedExpense(item)) return false;
+    if (category !== 'ALL' && category !== 'DIRECTED' && item.category !== category) return false;
     if (!q) return true;
     return `${item.storeName} ${item.items} ${item.purpose} ${item.note ?? ''}`
       .toLowerCase()
@@ -95,6 +106,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 {shortCat(cat)}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => setCategory('DIRECTED')}
+              className={category === 'DIRECTED' ? 'sc-chip sc-chip-directed-filter' : 'sc-chip'}
+            >
+              ⚡ 임원지시
+            </button>
           </div>
 
           <div className="sc-list-meta">
@@ -130,8 +148,11 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       ) : (
         <div>
-          {shown.map((item) => (
-            <div key={item.id} className="sc-row">
+          {shown.map((item) => {
+            const directed = isDirectedExpense(item);
+            const badge = directedLabel(item);
+            return (
+            <div key={item.id} className={`sc-row${directed ? ' sc-row-directed' : ''}`}>
               {/* 영수증 썸네일 — 누르면 원본, 없으면 수정 */}
               <button
                 type="button"
@@ -153,7 +174,10 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               {/* 본문 — 누르면 수정 */}
               <button type="button" className="sc-row-main" onClick={() => onEditExpense(item)}>
                 <div className="sc-row-text">
-                  <div className="sc-row-store">{item.storeName}</div>
+                  <div className="sc-row-store">
+                    {item.storeName}
+                    {badge && <span className="sc-directed-badge">{badge}</span>}
+                  </div>
                   <div className="sc-row-items sc-only-mobile">{item.items}</div>
                   <div className="sc-row-meta sc-only-mobile">
                     {shortCat(item.category)} · {mobileDate(item.date)}
@@ -169,6 +193,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
                 <div className="sc-only-desktop">
                   <span className="sc-tag">{shortCat(item.category)}</span>
+                  {badge && <span className="sc-directed-badge" style={{ marginLeft: 4 }}>{badge}</span>}
                 </div>
 
                 <div
@@ -183,7 +208,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 <ChevronRight size={16} strokeWidth={1.8} className="sc-row-caret" />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
