@@ -1,6 +1,49 @@
 import type { ExpenseCategory } from '../types/expense';
 import Tesseract from 'tesseract.js';
 
+// --- [신규] 이미지 전처리 함수 (대비 증폭 및 흑백 이진화) ---
+async function preprocessImage(imageUrl: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return resolve(imageUrl);
+
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        // 1. Grayscale 변환 (Luminosity 방식)
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        // 2. 고대비(Contrast) 처리
+        const contrast = 1.8;
+        gray = (gray - 128) * contrast + 128;
+
+        // 3. 경계 임계값으로 이진화 (뚜렷한 흑백 대비)
+        gray = gray > 140 ? 255 : 0;
+
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.9));
+    };
+    img.onerror = () => resolve(imageUrl); // 실패 시 원본 그대로 사용
+    img.src = imageUrl;
+  });
+}
+// ----------------------------------------------------
+
 export interface ParsedResult {
   storeName: string;
   date: string;
@@ -77,31 +120,37 @@ export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedRes
   };
 
   try {
-    // 한국어 + 영어(숫자 및 로마자 혼용) 모델 로드 및 텍스트 인식 수행
+    // 1. 이미지 전처리 (흑백 및 대비 강화로 영수증 글씨 뚜렷하게)
+    const processedImageUrl = await preprocessImage(imageUrl);
+
+    // 2. 한국어 + 영어 모델을 사용하여 텍스트 인식 수행 (고품질 설정)
     const { data: { text } } = await Tesseract.recognize(
-      imageUrl,
+      processedImageUrl,
       'kor+eng',
-      { logger: m => console.log(m) }
+      { 
+        logger: m => console.log('OCR Progress:', m.status, Math.round(m.progress * 100) + '%'),
+      }
     );
 
     console.log("OCR Extracted Text:", text);
 
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     
-    // 금액 찾기 휴리스틱 (₩ 기호, 합계, 결제금액 등 주변 숫자)
-    const amountRegex = /(?:합계|결제|합\s*계|금\s*액).*?(\d{1,3}(?:,\d{3})+)/;
+    // 금액 찾기 휴리스틱: 승인금액, 받을금액, 합계 등 영수증에서 자주 나오는 모든 키워드 포괄
+    const amountRegex = /(?:합\s*계|결\s*제|금\s*액|승\s*인|청\s*구|받\s*을|총\s*액|영\s*수|과\s*세|t\s*o\s*t\s*a\s*l|a\s*m\s*o\s*u\s*n\s*t).*?(\d{1,3}(?:,\d{3})+)/i;
     const pureNumRegex = /(\d{1,3}(?:,\d{3})+)/;
     
     let amount = 0;
-    for (const line of lines) {
-      const match = line.match(amountRegex);
+    // 거꾸로 탐색하여 맨 아래쪽(최종 합계일 확률이 높은 곳)부터 찾음
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const match = lines[i].match(amountRegex);
       if (match) {
         amount = parseInt(match[1].replace(/,/g, ''), 10);
         break;
       }
     }
     
-    // 합계 키워드를 못 찾았으면 콤마 있는 가장 큰 숫자 추정
+    // 키워드를 못 찾았으면, 콤마가 포함된 가장 큰 숫자를 결제 금액으로 추정
     if (amount === 0) {
       let maxNum = 0;
       for (const line of lines) {
