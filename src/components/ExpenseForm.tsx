@@ -14,6 +14,7 @@ const CATEGORIES: ExpenseCategory[] = [
   '식비/간식/음료',
   '교통/유류/주차',
   '접대/회의/행사',
+  '직원사기진작',
   '기타/일반지출'
 ];
 
@@ -105,12 +106,35 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setNotice('영수증 텍스트를 자동 분석 중입니다…');
     try {
       const parsed = await parseRealReceiptImage(ocrDataUrl);
+
+      // 인식된 값이 있을 때만 덮어쓰기 (공란은 사용자가 직접 입력)
       if (parsed.amount > 0) setAmount(String(parsed.amount));
       if (parsed.storeName) setStoreName(parsed.storeName);
       if (parsed.date) setDate(parsed.date);
-      setNotice('✨ 영수증 자동 인식이 완료되었습니다! 아래 영수증 화면을 보면서 내용을 확인해 주세요.');
+      if (parsed.time) setTime(parsed.time);
+      if (parsed.items) setItems(parsed.items);
+      if (parsed.purpose) setPurpose(parsed.purpose);
+      // 카테고리는 '기타/일반지출' 이 아닐 때만 자동 적용 (확실한 경우만)
+      if (parsed.category && parsed.category !== '기타/일반지출') {
+        setCategory(parsed.category);
+      }
+
+      const isDollar = parsed.note?.includes('달러→원화');
+      const filledFields = [
+        parsed.storeName ? '구입처' : '',
+        parsed.amount > 0 ? `금액${isDollar ? '(달러→원화 환산)' : ''}` : '',
+        parsed.date !== new Date().toISOString().split('T')[0] ? '일자' : '',
+        parsed.items ? '품목' : '',
+        parsed.purpose ? '목적' : '',
+      ].filter(Boolean).join(', ');
+
+      setNotice(
+        filledFields
+          ? `✨ 자동 인식 완료! [${filledFields}] 항목이 채워졌습니다. 나머지는 직접 확인해 주세요.`
+          : '💡 영수증 문자가 불명확하여 일부 항목만 인식되었습니다. 직접 확인해 주세요.'
+      );
     } catch {
-      setNotice('💡 영수증 문자가 불명확하여 자동 추출되지 않았습니다. 상단 이미지를 보면서 직접 입력해 주세요.');
+      setNotice('💡 영수증 인식 중 오류가 발생했습니다. 상단 이미지를 보면서 직접 입력해 주세요.');
     } finally {
       setIsOcr(false);
     }
