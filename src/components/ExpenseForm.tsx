@@ -4,6 +4,10 @@ import { parseRealReceiptImage } from '../utils/ocrParser';
 import { uploadReceiptImage } from '../api/expenseApi';
 import { Camera, Info, Loader2, Trash2 } from 'lucide-react';
 
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+
 const CATEGORIES: ExpenseCategory[] = [
   '시설/건재/자재',
   '스파/비품/소모품',
@@ -96,14 +100,58 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setNotice(null);
   };
 
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processOcr = async (ocrDataUrl: string) => {
+    setIsOcr(true);
+    setNotice('영수증 텍스트를 자동 분석 중입니다…');
+    try {
+      const parsed = await parseRealReceiptImage(ocrDataUrl);
+      if (parsed.amount > 0) setAmount(String(parsed.amount));
+      if (parsed.storeName) setStoreName(parsed.storeName);
+      if (parsed.date) setDate(parsed.date);
+      setNotice('✨ 영수증 자동 인식이 완료되었습니다! 아래 영수증 화면을 보면서 내용을 확인해 주세요.');
+    } catch {
+      setNotice('💡 영수증 문자가 불명확하여 자동 추출되지 않았습니다. 상단 이미지를 보면서 직접 입력해 주세요.');
+    } finally {
+      setIsOcr(false);
+    }
+  };
+
+  const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.type === 'application/pdf') {
+      setIsOcr(true);
+      setNotice('PDF 파일을 분석 중입니다…');
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas 2D context error');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport } as any).promise;
+        const pdfImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        setReceiptImage(pdfImageUrl);
+        setReceiptFile(file);
+        setIsReceiptExpanded(true);
+        await processOcr(pdfImageUrl);
+      } catch (err) {
+        console.error(err);
+        setNotice('💡 PDF 파일을 읽을 수 없습니다.');
+        setIsOcr(false);
+      }
+      e.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const rawUrl = event.target?.result as string;
-      // 1. 원본 컬러 선명한 이미지를 미리보기 및 저장용으로 보관
       setReceiptImage(rawUrl);
       setReceiptFile(file);
       setIsReceiptExpanded(true);
@@ -126,10 +174,8 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
 
-        // 원본 드로잉 (OCR 전처리 전)
         ctx.drawImage(img, 0, 0, w, h);
 
-        // 2. OCR 인식 전용 흑백 대비 전처리 (캔버스에서만 사용)
         const imgData = ctx.getImageData(0, 0, w, h);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
@@ -142,19 +188,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         ctx.putImageData(imgData, 0, 0);
 
         const ocrDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-        setIsOcr(true);
-        setNotice('영수증 텍스트를 자동 분석 중입니다…');
-        try {
-          const parsed = await parseRealReceiptImage(ocrDataUrl);
-          if (parsed.amount > 0) setAmount(String(parsed.amount));
-          if (parsed.storeName) setStoreName(parsed.storeName);
-          setNotice('✨ 영수증 자동 인식이 완료되었습니다! 아래 영수증 화면을 보면서 내용을 확인해 주세요.');
-        } catch {
-          setNotice('💡 영수증 문자가 불명확하여 자동 추출되지 않았습니다. 상단 영수증 이미지를 보면서 직접 입력해 주세요.');
-        } finally {
-          setIsOcr(false);
-        }
+        await processOcr(ocrDataUrl);
       };
       img.src = rawUrl;
     };
@@ -225,7 +259,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         {/* Gallery Input */}
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           ref={galleryInputRef}
           onChange={handleImage}
           style={{ display: 'none' }}
@@ -381,10 +415,10 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 </div>
                 <span>
                   <span className="sc-dashed-title" style={{ display: 'block' }}>
-                    앨범에서 선택
+                    파일 선택
                   </span>
                   <span className="sc-dashed-sub" style={{ display: 'block' }}>
-                    갤러리 사진 첨부
+                    사진 및 PDF 첨부
                   </span>
                 </span>
               </button>
