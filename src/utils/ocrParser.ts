@@ -24,12 +24,13 @@ async function preprocessImage(imageUrl: string): Promise<string> {
         const b = data[i + 2];
         let gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
-        // 2. 고대비(Contrast) 처리
-        const contrast = 1.8;
+        // 2. 고대비(Contrast) 처리 완화 (글씨 깨짐 방지)
+        const contrast = 1.3;
         gray = (gray - 128) * contrast + 128;
 
-        // 3. 경계 임계값으로 이진화 (뚜렷한 흑백 대비)
-        gray = gray > 140 ? 255 : 0;
+        // 이진화(Threshold) 제거: 부드러운 회색조 유지
+        if (gray > 255) gray = 255;
+        if (gray < 0) gray = 0;
 
         data[i] = gray;
         data[i + 1] = gray;
@@ -136,45 +137,65 @@ export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedRes
 
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     
-    // 금액 찾기 휴리스틱: 승인금액, 받을금액, 합계 등 영수증에서 자주 나오는 모든 키워드 포괄
-    const amountRegex = /(?:합\s*계|결\s*제|금\s*액|승\s*인|청\s*구|받\s*을|총\s*액|영\s*수|과\s*세|t\s*o\s*t\s*a\s*l|a\s*m\s*o\s*u\s*n\s*t).*?(\d{1,3}(?:,\d{3})+)/i;
-    const pureNumRegex = /(\d{1,3}(?:,\d{3})+)/;
-    
+    // --- 1. 결제 금액 추출 (멀티라인 허용 [\s\S] 으로 줄바꿈 대응) ---
+    // 추가 키워드: 승차요금, Fare
+    const amountRegex = /(?:합\s*계|결\s*제|금\s*액|승\s*인|청\s*구|받\s*을|총\s*액|영\s*수|과\s*세|승\s*차|t\s*o\s*t\s*a\s*l|a\s*m\s*o\s*u\s*n\s*t|f\s*a\s*r\s*e)[\s\S]{0,40}?(\d{1,3}(?:,\d{3})+)/i;
     let amount = 0;
-    // 거꾸로 탐색하여 맨 아래쪽(최종 합계일 확률이 높은 곳)부터 찾음
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const match = lines[i].match(amountRegex);
-      if (match) {
-        amount = parseInt(match[1].replace(/,/g, ''), 10);
-        break;
-      }
-    }
-    
-    // 키워드를 못 찾았으면, 콤마가 포함된 가장 큰 숫자를 결제 금액으로 추정
-    if (amount === 0) {
+    const amountMatch = text.match(amountRegex);
+    if (amountMatch) {
+      amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);
+    } else {
+      // 키워드를 못 찾았으면, 콤마가 포함된 가장 큰 숫자를 결제 금액으로 추정
+      const pureNumRegex = /(\d{1,3}(?:,\d{3})+)/g;
       let maxNum = 0;
-      for (const line of lines) {
-        const match = line.match(pureNumRegex);
-        if (match) {
-          const num = parseInt(match[1].replace(/,/g, ''), 10);
-          if (num > maxNum) maxNum = num;
-        }
+      let match;
+      while ((match = pureNumRegex.exec(text)) !== null) {
+        const num = parseInt(match[1].replace(/,/g, ''), 10);
+        if (num > maxNum) maxNum = num;
       }
       amount = maxNum;
     }
 
-    // 상호명 찾기 휴리스틱 (보통 최상단에 큰 글씨로 있음)
+    // --- 2. 구입처(상호명) 추출 ---
+    // 가맹점, 상호 등의 명시적 키워드 우선 탐색 (대괄호나 줄바꿈 전까지)
     let storeName = '상호명 인식 실패';
-    if (lines.length > 0) {
-      // 대표적으로 사업자번호나 대표자 이름이 있는 줄 이전의 텍스트를 상호로 추정
+    const storeRegex = /(?:가맹점|상호|상호명|사업장)\s*[:;]?\s*([^\[\(\n]+)/i;
+    const storeMatch = text.match(storeRegex);
+    if (storeMatch && storeMatch[1].trim().length > 1) {
+      storeName = storeMatch[1].replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
+    } else if (lines.length > 0) {
+      // 없으면 첫 번째 줄 또는 두 번째 줄 사용
       storeName = lines[0].replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
       if (storeName.length < 2 && lines.length > 1) {
         storeName = lines[1].replace(/[^가-힣a-zA-Z0-9\s]/g, '').trim();
       }
     }
 
+    // --- 3. 거래일시(Date, Time) 추출 ---
+    let dateStr = defaultResult.date;
+    let timeStr = defaultResult.time;
+    const dateRegex = /(?:거래일시|일시|date|판매일|승인일시)[\s\S]{0,30}?(\d{4})[-/.년\s]+(\d{1,2})[-/.월\s]+(\d{1,2})/i;
+    const timeRegex = /(?:거래일시|일시|date|판매일|승인일시)[\s\S]{0,30}?(\d{2})[:시\s]+(\d{2})/i;
+    
+    const dateMatch = text.match(dateRegex);
+    if (dateMatch) {
+      const yyyy = dateMatch[1];
+      const mm = dateMatch[2].padStart(2, '0');
+      const dd = dateMatch[3].padStart(2, '0');
+      dateStr = `${yyyy}-${mm}-${dd}`;
+    }
+    
+    const timeMatch = text.match(timeRegex);
+    if (timeMatch) {
+      const hh = timeMatch[1].padStart(2, '0');
+      const min = timeMatch[2].padStart(2, '0');
+      timeStr = `${hh}:${min}`;
+    }
+
     return {
       ...defaultResult,
+      date: dateStr,
+      time: timeStr,
       storeName: storeName.substring(0, 15), // 너무 길면 자름
       amount,
       note: 'AI OCR 텍스트 자동 스캔',
