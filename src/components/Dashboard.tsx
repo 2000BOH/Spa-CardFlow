@@ -75,6 +75,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
             </div>
           </div>
 
+          {/* 헤더 영역 임원 지시 사용 합계 (소형, 항상 표시) */}
+          {hasDirected && (
+            <div style={{
+              marginTop: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '20px',
+              padding: '3px 10px',
+              fontSize: '0.75rem',
+              color: 'rgba(255,255,255,0.95)',
+            }}>
+              <span>⚡ 임원지시</span>
+              <span style={{ fontWeight: 700 }}>{won(summary.directedSpend)}</span>
+              <span style={{ opacity: 0.75 }}>({summary.directedCount}건 · 한도 별도)</span>
+            </div>
+          )}
+
           {/* 데스크톱: 어두운 배경 위 3칸 */}
           <div className="sc-hero-stats sc-only-desktop">{stats(true)}</div>
         </div>

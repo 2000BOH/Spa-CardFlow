@@ -22,12 +22,64 @@ const saveLocalData = (data: ExpenseItem[]) => {
 };
 
 /**
- * 1. 전체 지출 내역 조회 (Read) - Offline First
+ * 0. [동기화 복구] local_ ID로 남아있는 데이터를 Supabase에 재업로드
+ * - directed_by 콜럼 추가 전에 저장 실패한 데이터를 복구하는 용도
  */
+async function syncLocalToServer(): Promise<void> {
+  if (!supabase) return;
+  const localData = getLocalData();
+  const unsynced = localData.filter(item => item.id.startsWith('local_'));
+  if (unsynced.length === 0) return;
+
+  console.log(`[동기화] 미동기화 데이터 ${unsynced.length}건을 서버에 업로드 시도 중...`);
+
+  for (const item of unsynced) {
+    try {
+      const payload = {
+        store_name: item.storeName,
+        expense_date: item.date,
+        expense_time: item.time,
+        items: item.items,
+        quantity: item.quantity,
+        amount: item.amount,
+        category: item.category,
+        purpose: item.purpose,
+        note: item.note,
+        receipt_image_url: item.receiptImage,
+        directed_by: item.directedBy || 'none',
+      };
+      const { data, error } = await supabase
+        .from('cardflow_expenses')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) {
+        console.warn(`[동기화 실패] ${item.storeName}:`, error.message);
+        continue;
+      }
+
+      // 성공 시 local_ ID 를 서버 ID로 교체
+      const currentLocal = getLocalData();
+      const replaced = currentLocal.map(ex =>
+        ex.id === item.id ? { ...ex, id: data.id, createdAt: data.created_at } : ex
+      );
+      saveLocalData(replaced);
+      console.log(`[동기화 성공] ${item.storeName} → 서버 ID: ${data.id}`);
+    } catch (err) {
+      console.warn(`[동기화 오류] ${item.storeName}:`, err);
+    }
+  }
+}
+
+
 export async function fetchExpenses(): Promise<ExpenseItem[]> {
   if (!supabase) {
     return getLocalData();
   }
+
+  // 서버 접속 가능 시: 로컬에만 남은 미동기화 데이터를 먼저 서버에 업로드 시도
+  syncLocalToServer().catch(e => console.warn('[동기화 백그라운드 실패]', e));
 
   try {
     const { data, error } = await supabase
