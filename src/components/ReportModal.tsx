@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
 import { isDirectedExpense, getDirectedBy } from '../types/expense';
 import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
@@ -23,16 +23,28 @@ const directedLabel = (item: ExpenseItem): string => {
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expenses, summary }) => {
   const [editing, setEditing] = useState(false);
-  const [tableData, setTableData] = useState(
-    expenses.map(e => ({
+
+  // expenses 가 변경될 때마다 tableData 재동기화
+  // useState 초기값은 컨포넌트 업서 한 번만 실행되어, 모달이 열릴 때
+  // expenses가 비어 있다 나중에 채워지면 하여 데이터가 안 보이는 버그 수정
+  const buildTableData = (exps: ExpenseItem[]) =>
+    exps.map(e => ({
       id: e.id,
       date: e.date,
       amount: won(e.amount),
-      purpose: e.purpose,
+      storeName: e.storeName || '',
+      items: e.items || '',
+      purpose: e.purpose || '',
       note: e.note || '',
       directedBy: getDirectedBy(e)
-    }))
-  );
+    }));
+
+  const [tableData, setTableData] = useState(() => buildTableData(expenses));
+
+  useEffect(() => {
+    setTableData(buildTableData(expenses));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expenses]);
 
   if (!isOpen) return null;
 
@@ -94,33 +106,36 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     items.map((item) => {
       const original = expenses.find(e => e.id === item.id);
       const badge = original ? directedLabel(original) : '';
+      const cols = isDirected ? '0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr' : '0.8fr 1.2fr 1fr 1.5fr 1fr';
       return (
         <div
           key={item.id}
           style={{
             display: 'grid',
-            gridTemplateColumns: isDirected ? '1fr 1fr 2fr 1.5fr 1fr' : '1fr 1fr 2fr 2fr',
-            padding: '12px 16px',
+            gridTemplateColumns: cols,
+            padding: '10px 16px',
             borderBottom: '1px solid #f1f5f9',
-            fontSize: '14px',
+            fontSize: '13px',
             alignItems: 'center',
             background: isDirected ? '#fffbeb' : undefined
           }}
         >
           {editing ? (
             <>
-              <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-              <input className="sc-input" value={item.amount} onChange={e => handleTableChange(item.id, 'amount', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-              <input className="sc-input" value={item.purpose} onChange={e => handleTableChange(item.id, 'purpose', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
-              <input className="sc-input" value={item.note} onChange={e => handleTableChange(item.id, 'note', e.target.value)} style={{ padding: '4px', fontSize: '13px' }} />
+              <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
+              <input className="sc-input" value={item.storeName} onChange={e => handleTableChange(item.id, 'storeName', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
+              <input className="sc-input" value={item.amount} onChange={e => handleTableChange(item.id, 'amount', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
+              <input className="sc-input" value={item.purpose} onChange={e => handleTableChange(item.id, 'purpose', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
+              <input className="sc-input" value={item.note} onChange={e => handleTableChange(item.id, 'note', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
               {isDirected && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>{badge}</span>}
             </>
           ) : (
             <>
               <span>{item.date}</span>
-              <span>{item.amount}</span>
-              <span>{item.purpose}</span>
-              <span style={{ color: 'var(--muted)' }}>{item.note || '-'}</span>
+              <span style={{ fontWeight: 500 }}>{item.storeName || '-'}</span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>{item.amount}</span>
+              <span style={{ color: '#334155' }}>{item.purpose || item.items || '-'}</span>
+              <span style={{ color: 'var(--muted)', fontSize: '12px' }}>{item.note || '-'}</span>
               {isDirected && <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 600 }}>{badge}</span>}
             </>
           )}
@@ -307,8 +322,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <div className="sc-blankbox">개인 사용 결제 내역이 없습니다</div>
           ) : (
             <div className="sc-detail">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr 2fr', fontWeight: 600, padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: '13px', color: '#475569' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '0.8fr 1.2fr 1fr 1.5fr 1fr',
+                fontWeight: 600, padding: '10px 16px',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#f8fafc', fontSize: '13px', color: '#475569'
+              }}>
                 <span>일자</span>
+                <span>구입처</span>
                 <span>금액</span>
                 <span>사용목적</span>
                 <span>비고</span>
@@ -335,9 +357,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               <div className="sc-detail" style={{ border: '2px solid #f59e0b', borderRadius: '12px' }}>
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 2fr 1.5fr 1fr',
+                  gridTemplateColumns: '0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr',
                   fontWeight: 600,
-                  padding: '12px 16px',
+                  padding: '10px 16px',
                   borderBottom: '1px solid #fcd34d',
                   background: '#fef3c7',
                   fontSize: '13px',
@@ -345,6 +367,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                   borderRadius: '10px 10px 0 0'
                 }}>
                   <span>일자</span>
+                  <span>구입처</span>
                   <span>금액</span>
                   <span>사용목적</span>
                   <span>비고</span>
