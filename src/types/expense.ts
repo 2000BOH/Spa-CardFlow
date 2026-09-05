@@ -50,6 +50,8 @@ export interface BudgetSummary {
   personalSpend: number;      // 개인 사용 금액 (한도 포함 대상)
   directedSpend: number;      // 임원 지시 사용 금액 (한도 별도)
   directedCount: number;      // 임원 지시 사용 건수
+  ceoSpend: number;           // 대표님 지시 사용 금액
+  chairmanSpend: number;      // 회장님 지시 사용 금액
   remainingBudget: number;    // 남은 금액 (개인 한도 기준)
   daysUntilClosing: number;   // 15일 결산일까지 남은 날
   closingDateStr: string;     // 다음 결산일 문자열

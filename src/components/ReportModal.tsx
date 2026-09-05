@@ -141,24 +141,37 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               onClick={() => {
                 const reportEl = document.getElementById('printable-report-area');
                 if (!reportEl) return;
-                const printWin = window.open('', '_blank', 'width=800,height=600');
+                const printWin = window.open('', '_blank', 'width=900,height=700');
                 if (!printWin) {
                   alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
                   return;
                 }
+                // CSS 스타일 시트 수집 (스타일 쿨레시 방지)
+                const styleSheets = Array.from(document.styleSheets)
+                  .map(s => {
+                    try { return Array.from(s.cssRules).map(r => r.cssText).join('\n'); } catch { return ''; }
+                  })
+                  .join('\n');
+
                 printWin.document.write(`
-                  <html><head><title>결산 보고서 출력</title>
+                  <!DOCTYPE html><html><head><meta charset="utf-8"><title>결산 보고서 출력</title>
                   <style>
-                    body { margin: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+                    ${styleSheets}
+                    body { margin: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff !important; color: #0f172a !important; }
                     img { max-width: 60px; }
                     table { width: 100%; border-collapse: collapse; }
                     td, th { border: 1px solid #ddd; padding: 8px; }
+                    .sc-no-print { display: none !important; }
+                    .sc-overlay, .sc-sheet-bar { display: none !important; }
                   </style>
                   </head><body>${reportEl.innerHTML}</body></html>
                 `);
                 printWin.document.close();
-                printWin.focus();
-                setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+                // onload 이후에 print() 호출 → 화면 나탄다 사라지는 문제 해결
+                printWin.onload = () => {
+                  printWin.focus();
+                  printWin.print();
+                };
               }}
             >
               <Printer size={16} strokeWidth={1.9} />
@@ -238,7 +251,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </div>
 
             <div className="sc-meta-row">
-              <div className="sc-meta-total-key">개인 사용 소계</div>
+              <div className="sc-meta-total-key">이수용 이사 사용 소계</div>
               <div className="sc-meta-total-val">
                 <span className="num">{won(personalTotal)}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>({personalExpenses.length}건 · 한도 {won(summary.monthlyBudget)})</span>
@@ -246,13 +259,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </div>
 
             {directedExpenses.length > 0 && (
-              <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
-                <div className="sc-meta-total-key" style={{ color: '#d97706' }}>⚡ 임원 지시 소계</div>
-                <div className="sc-meta-total-val">
-                  <span className="num" style={{ color: '#d97706' }}>{won(directedTotal)}</span>
-                  <span style={{ fontSize: 13, color: '#b45309' }}>{directedExpenses.length}건 · 한도 별도</span>
-                </div>
-              </div>
+              <>
+                {summary.ceoSpend > 0 && (
+                  <div className="sc-meta-row" style={{ background: '#eef2ff', borderLeft: '4px solid #6366f1' }}>
+                    <div className="sc-meta-total-key" style={{ color: '#4338ca' }}>🏢 대표님 지시 소계</div>
+                    <div className="sc-meta-total-val">
+                      <span className="num" style={{ color: '#4338ca' }}>{won(summary.ceoSpend)}</span>
+                      <span style={{ fontSize: 13, color: '#6366f1' }}>한도 별도</span>
+                    </div>
+                  </div>
+                )}
+                {summary.chairmanSpend > 0 && (
+                  <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+                    <div className="sc-meta-total-key" style={{ color: '#d97706' }}>👔 회장님 지시 소계</div>
+                    <div className="sc-meta-total-val">
+                      <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
+                      <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="sc-meta-row">
@@ -267,7 +293,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
           {/* 2. 개인 사용 내역 세부 명세 */}
           <div className="sc-section-head">
-            <h2 className="sc-section-title">2-1. 개인 사용 내역 (한도 내)</h2>
+            <h2 className="sc-section-title">2-1. 이수용 이사 사용 내역 (한도 내)</h2>
             <button
               type="button"
               className="sc-link sc-no-print"
@@ -291,7 +317,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               {renderRows(orderedPersonal, false)}
 
               <div className="sc-detail-sum">
-                <span className="sc-detail-sum-label">개인 소계</span>
+                <span className="sc-detail-sum-label">이수용 이사 소계</span>
                 <span className="sc-detail-sum-value">{won(personalTotal)}</span>
               </div>
             </div>

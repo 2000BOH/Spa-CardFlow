@@ -40,11 +40,15 @@ export function calculateBudgetSummary(expenses: ExpenseItem[]): BudgetSummary {
   let personalSpend = 0;
   let directedSpend = 0;
   let directedCount = 0;
+  let ceoSpend = 0;
+  let chairmanSpend = 0;
 
   for (const item of expenses) {
     if (isDirectedExpense(item)) {
       directedSpend += item.amount;
       directedCount += 1;
+      if (item.directedBy === 'ceo') ceoSpend += item.amount;
+      if (item.directedBy === 'chairman') chairmanSpend += item.amount;
     } else {
       personalSpend += item.amount;
     }
@@ -77,6 +81,8 @@ export function calculateBudgetSummary(expenses: ExpenseItem[]): BudgetSummary {
     personalSpend,
     directedSpend,
     directedCount,
+    ceoSpend,
+    chairmanSpend,
     remainingBudget,
     daysUntilClosing,
     closingDateStr,
