@@ -48,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onOpenReport, r
             type="button"
             onClick={onOpenReport}
             className="sc-btn sc-btn-primary sc-only-desktop"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
           >
             <FileText size={18} strokeWidth={1.8} />
             결산 보고서
