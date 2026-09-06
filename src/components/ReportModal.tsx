@@ -1,8 +1,160 @@
 import React, { useState, useEffect } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
 import { isDirectedExpense, getDirectedBy } from '../types/expense';
-import { exportReportToPDF, exportReportToJPG } from '../utils/pdfExporter';
+import { exportReportToPDF, exportReportToJPG, printReport } from '../utils/pdfExporter';
 import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
+
+/** 영수증 이미지의 가로세로 비율을 판단해서 landscape 여부를 반환 */
+function isLandscapeImage(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > img.naturalHeight * 1.3);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+}
+
+/**
+ * 영수증 그리드 섹션
+ * - 세로 영수증: 3열 그리드(한 행에 3장)
+ * - 가로 영수증(landscape): colspan 2 (왼쪽 2칸 차지)
+ * - 좌상단 원형 번호 배지
+ */
+const ReceiptGrid: React.FC<{
+  items: ExpenseItem[];
+  groupLabel: string;
+  startSeq: number;        // 이 그룹의 첫 번째 순번
+  borderColor?: string;
+  bgColor?: string;
+}> = ({ items, groupLabel, startSeq, borderColor, bgColor }) => {
+  const withReceipt = items.filter(i => i.receiptImage);
+  const [landscapeMap, setLandscapeMap] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    let alive = true;
+    withReceipt.forEach(async (item) => {
+      if (!item.receiptImage) return;
+      const isLand = await isLandscapeImage(item.receiptImage);
+      if (alive) setLandscapeMap(prev => ({ ...prev, [item.id]: isLand }));
+    });
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withReceipt.map(i => i.id).join(',')]);
+
+  if (withReceipt.length === 0) return null;
+
+  return (
+    <div style={{
+      marginTop: 24,
+      border: borderColor ? `2px solid ${borderColor}` : '1px solid #e2e8f0',
+      borderRadius: 12,
+      overflow: 'hidden',
+      background: bgColor || '#fff'
+    }}>
+      <div style={{
+        padding: '10px 16px',
+        background: borderColor ? bgColor || '#fef3c7' : '#f8fafc',
+        borderBottom: `1px solid ${borderColor || '#e2e8f0'}`,
+        fontWeight: 700, fontSize: 14,
+        color: borderColor ? '#92400e' : '#475569'
+      }}>
+        📎 {groupLabel} — 영수증 첨부 ({withReceipt.length}건)
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 12,
+        padding: 16
+      }}>
+        {withReceipt.map((item, idx) => {
+          const isLand = landscapeMap[item.id] ?? false;
+          const seqNum = startSeq + idx; // 전체 문서 기준 순번
+          return (
+            <div
+              key={item.id}
+              style={{
+                gridColumn: isLand ? 'span 2' : 'span 1',
+                border: '1px solid #e2e8f0',
+                borderRadius: 8,
+                overflow: 'hidden',
+                background: '#fff',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                position: 'relative'
+              }}
+            >
+              {/* 쾐션: 상호명 + 일자 + 금액 */}
+              <div style={{
+                padding: '6px 10px',
+                background: '#f1f5f9',
+                fontSize: 11,
+                color: '#475569',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+                  {item.storeName}
+                </span>
+                <span>{item.date} · {'₩' + Math.round(item.amount).toLocaleString('ko-KR')}</span>
+              </div>
+
+              {/* 영수증 이미지 (좌상단 순번 배지 포함) */}
+              <div style={{
+                width: '100%',
+                maxHeight: isLand ? 260 : 400,
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                background: '#f8fafc',
+                position: 'relative'
+              }}>
+                <img
+                  src={item.receiptImage!}
+                  alt={`${item.storeName} 영수증`}
+                  style={{
+                    width: '100%',
+                    height: isLand ? 260 : undefined,
+                    maxHeight: isLand ? 260 : 400,
+                    objectFit: isLand ? 'cover' : 'contain',
+                    display: 'block'
+                  }}
+                />
+                {/* 좌상단 원형 순번 배지 */}
+                <div style={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: borderColor || '#475569',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                  lineHeight: 1,
+                  zIndex: 1
+                }}>
+                  {seqNum}
+                </div>
+              </div>
+
+              {/* 사용 목적 */}
+              <div style={{ padding: '5px 10px', fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9' }}>
+                {item.purpose || item.items || '-'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 
 interface ReportModalProps {
   isOpen: boolean;
@@ -25,8 +177,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
   const [editing, setEditing] = useState(false);
 
   // expenses 가 변경될 때마다 tableData 재동기화
-  // useState 초기값은 컨포넌트 업서 한 번만 실행되어, 모달이 열릴 때
-  // expenses가 비어 있다 나중에 채워지면 하여 데이터가 안 보이는 버그 수정
   const buildTableData = (exps: ExpenseItem[]) =>
     exps.map(e => ({
       id: e.id,
@@ -48,15 +198,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
   if (!isOpen) return null;
 
-  // 개인 사용 / 임원 지시 사용 분리
-  const personalExpenses = expenses.filter(e => !isDirectedExpense(e));
-  const directedExpenses = expenses.filter(e => isDirectedExpense(e));
+  // ── 그룹 분리: 이사(개인) / 회장 지시 / 대표 지시 순서 ──
+  const personalExpenses  = expenses.filter(e => getDirectedBy(e) === 'none');
+  const chairmanExpenses  = expenses.filter(e => getDirectedBy(e) === 'chairman');
+  const ceoExpenses       = expenses.filter(e => getDirectedBy(e) === 'ceo');
+  const directedExpenses  = expenses.filter(e => isDirectedExpense(e));
 
-  const personalTableData = tableData.filter(t => t.directedBy === 'none');
-  const directedTableData = tableData.filter(t => t.directedBy !== 'none');
+  const personalTableData  = tableData.filter(t => t.directedBy === 'none');
+  const chairmanTableData  = tableData.filter(t => t.directedBy === 'chairman');
+  const ceoTableData       = tableData.filter(t => t.directedBy === 'ceo');
+  const directedTableData  = tableData.filter(t => t.directedBy !== 'none');
 
-  const personalTotal = personalExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const directedTotal = directedExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const personalTotal  = personalExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const chairmanTotal  = chairmanExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const ceoTotal       = ceoExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const directedTotal  = directedExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // 영수증 그리드용 정렬된 배열
+  const personalExpensesOrdered = [...personalExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const chairmanExpensesOrdered = [...chairmanExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const ceoExpensesOrdered      = [...ceoExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const submitDate = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -94,19 +255,25 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
     return `${startYear}.${curMonthStr}.15 ~ ${endYear}.${nextMonthStr}.14`;
   };
 
-  const orderedPersonal = [...personalTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const orderedDirected = [...directedTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedPersonal  = [...personalTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedChairman  = [...chairmanTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedCeo       = [...ceoTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const orderedDirected  = [...directedTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const handleTableChange = (id: string, field: string, value: string) => {
     setTableData(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
-  /** 공통 테이블 행 렌더링 */
-  const renderRows = (items: typeof tableData, isDirected: boolean) =>
-    items.map((item) => {
+  /** 공통 테이블 행 렌더링 — startSeq: 이 테이블의 첫 순번 */
+  const renderRows = (items: typeof tableData, isDirected: boolean, startSeq: number) =>
+    items.map((item, idx) => {
       const original = expenses.find(e => e.id === item.id);
       const badge = original ? directedLabel(original) : '';
-      const cols = isDirected ? '0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr' : '0.8fr 1.2fr 1fr 1.5fr 1fr';
+      // No. 컨럼 포함: 개인은 6컨, 임원지시는 7컨
+      const cols = isDirected
+        ? '32px 0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr'
+        : '32px 0.8fr 1.2fr 1fr 1.5fr 1fr';
+      const seqNum = startSeq + idx;
       return (
         <div
           key={item.id}
@@ -120,6 +287,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             background: isDirected ? '#fffbeb' : undefined
           }}
         >
+          {/* 순번 셀 */}
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#94a3b8',
+            textAlign: 'center', lineHeight: 1
+          }}>
+            {seqNum}
+          </span>
           {editing ? (
             <>
               <input className="sc-input" value={item.date} onChange={e => handleTableChange(item.id, 'date', e.target.value)} style={{ padding: '4px', fontSize: '12px' }} />
@@ -143,6 +317,43 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
       );
     });
 
+
+  /** 개별 지시자 그룹 테이블 렌더 — startSeq: 첫 행의 순번 */
+  const renderGroupTable = (
+    items: typeof tableData,
+    total: number,
+    label: string,
+    headerBg: string,
+    headerColor: string,
+    headerBorder: string,
+    sumBg: string,
+    sumColor: string,
+    startSeq: number
+  ) => {
+    if (items.length === 0) return null;
+    return (
+      <div className="sc-detail" style={{ border: `2px solid ${headerBorder}`, borderRadius: '12px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '32px 0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr',
+          fontWeight: 600, padding: '10px 16px',
+          borderBottom: `1px solid ${headerBorder}`,
+          background: headerBg, fontSize: '13px', color: headerColor,
+          borderRadius: '10px 10px 0 0'
+        }}>
+          <span style={{ textAlign: 'center' }}>No.</span>
+          <span>일자</span><span>구입처</span><span>금액</span><span>사용목적</span><span>비고</span><span>지시자</span>
+        </div>
+        {renderRows(items, true, startSeq)}
+        <div className="sc-detail-sum" style={{ background: sumBg, color: sumColor }}>
+          <span className="sc-detail-sum-label">{label} 소계</span>
+          <span className="sc-detail-sum-value" style={{ color: sumColor }}>{won(total)}</span>
+        </div>
+      </div>
+    );
+  };
+
+
   return (
     <div className="sc-overlay">
       <div className="sc-sheet">
@@ -153,41 +364,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
               style={{ background: '#10b981' }}
-              onClick={() => {
-                const reportEl = document.getElementById('printable-report-area');
-                if (!reportEl) return;
-                const printWin = window.open('', '_blank', 'width=900,height=700');
-                if (!printWin) {
-                  alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.');
-                  return;
-                }
-                // CSS 스타일 시트 수집 (스타일 쿨레시 방지)
-                const styleSheets = Array.from(document.styleSheets)
-                  .map(s => {
-                    try { return Array.from(s.cssRules).map(r => r.cssText).join('\n'); } catch { return ''; }
-                  })
-                  .join('\n');
-
-                printWin.document.write(`
-                  <!DOCTYPE html><html><head><meta charset="utf-8"><title>결산 보고서 출력</title>
-                  <style>
-                    ${styleSheets}
-                    body { margin: 20px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #fff !important; color: #0f172a !important; }
-                    img { max-width: 60px; }
-                    table { width: 100%; border-collapse: collapse; }
-                    td, th { border: 1px solid #ddd; padding: 8px; }
-                    .sc-no-print { display: none !important; }
-                    .sc-overlay, .sc-sheet-bar { display: none !important; }
-                  </style>
-                  </head><body>${reportEl.innerHTML}</body></html>
-                `);
-                printWin.document.close();
-                // onload 이후에 print() 호출 → 화면 나탄다 사라지는 문제 해결
-                printWin.onload = () => {
-                  printWin.focus();
-                  printWin.print();
-                };
-              }}
+              onClick={() => printReport('printable-report-area')}
             >
               <Printer size={16} strokeWidth={1.9} />
               프린트 출력
@@ -265,6 +442,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               <div className="sc-meta-val">{getPeriodString()}</div>
             </div>
 
+            {/* ① 이수용 이사 */}
             <div className="sc-meta-row">
               <div className="sc-meta-total-key">이수용 이사 사용 소계</div>
               <div className="sc-meta-total-val">
@@ -273,27 +451,32 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               </div>
             </div>
 
-            {directedExpenses.length > 0 && (
-              <>
-                {summary.ceoSpend > 0 && (
-                  <div className="sc-meta-row" style={{ background: '#eef2ff', borderLeft: '4px solid #6366f1' }}>
-                    <div className="sc-meta-total-key" style={{ color: '#4338ca' }}>🏢 대표님 지시 소계</div>
-                    <div className="sc-meta-total-val">
-                      <span className="num" style={{ color: '#4338ca' }}>{won(summary.ceoSpend)}</span>
-                      <span style={{ fontSize: 13, color: '#6366f1' }}>한도 별도</span>
-                    </div>
-                  </div>
-                )}
-                {summary.chairmanSpend > 0 && (
-                  <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
-                    <div className="sc-meta-total-key" style={{ color: '#d97706' }}>👔 회장님 지시 소계</div>
-                    <div className="sc-meta-total-val">
-                      <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
-                      <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
-                    </div>
-                  </div>
-                )}
-              </>
+            {/* ② 회장님 지시 */}
+            {summary.chairmanSpend > 0 && (
+              <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+                <div className="sc-meta-total-key" style={{ color: '#d97706' }}>👔 회장님 지시 소계</div>
+                <div className="sc-meta-total-val">
+                  <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
+                  <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
+                </div>
+              </div>
+            )}
+
+            {/* ③ 대표님 지시 — 노란색 박스 강조 */}
+            {summary.ceoSpend > 0 && (
+              <div className="sc-meta-row" style={{
+                background: '#fefce8',
+                borderLeft: '4px solid #eab308',
+                outline: '2px solid #facc15',
+                outlineOffset: '-2px',
+                borderRadius: 6
+              }}>
+                <div className="sc-meta-total-key" style={{ color: '#854d0e' }}>🏢 대표님 지시 소계</div>
+                <div className="sc-meta-total-val">
+                  <span className="num" style={{ color: '#854d0e' }}>{won(summary.ceoSpend)}</span>
+                  <span style={{ fontSize: 13, color: '#a16207' }}>한도 별도</span>
+                </div>
+              </div>
             )}
 
             <div className="sc-meta-row">
@@ -306,14 +489,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           </div>
 
 
-          {/* 2. 개인 사용 내역 세부 명세 */}
+          {/* ─────────────────────────────────── */}
+          {/* 2-1. 이수용 이사 사용 내역           */}
+          {/* ─────────────────────────────────── */}
           <div className="sc-section-head">
             <h2 className="sc-section-title">2-1. 이수용 이사 사용 내역 (한도 내)</h2>
-            <button
-              type="button"
-              className="sc-link sc-no-print"
-              onClick={() => setEditing((v) => !v)}
-            >
+            <button type="button" className="sc-link sc-no-print" onClick={() => setEditing(v => !v)}>
               {editing ? '표 편집 완료' : '표 내용 편집하기'}
             </button>
           </div>
@@ -322,22 +503,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <div className="sc-blankbox">개인 사용 결제 내역이 없습니다</div>
           ) : (
             <div className="sc-detail">
+              {/* No. 컬럼 포함 헤더 */}
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: '0.8fr 1.2fr 1fr 1.5fr 1fr',
-                fontWeight: 600, padding: '10px 16px',
-                borderBottom: '1px solid #e2e8f0',
+                display: 'grid', gridTemplateColumns: '32px 0.8fr 1.2fr 1fr 1.5fr 1fr',
+                fontWeight: 600, padding: '10px 16px', borderBottom: '1px solid #e2e8f0',
                 background: '#f8fafc', fontSize: '13px', color: '#475569'
               }}>
-                <span>일자</span>
-                <span>구입처</span>
-                <span>금액</span>
-                <span>사용목적</span>
-                <span>비고</span>
+                <span style={{ textAlign: 'center' }}>No.</span>
+                <span>일자</span><span>구입처</span><span>금액</span><span>사용목적</span><span>비고</span>
               </div>
-
-              {renderRows(orderedPersonal, false)}
-
+              {/* startSeq=1: 이수용 이사 섹션은 1번부터 시작 */}
+              {renderRows(orderedPersonal, false, 1)}
               <div className="sc-detail-sum">
                 <span className="sc-detail-sum-label">이수용 이사 소계</span>
                 <span className="sc-detail-sum-value">{won(personalTotal)}</span>
@@ -345,44 +521,68 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             </div>
           )}
 
-          {/* 2-2. 임원 지시 사용 내역 (한도 외) — 눈에 띄게 강조 */}
-          {directedExpenses.length > 0 && (
+          {/* ─────────────────────────────────── */}
+          {/* 2-2. 회장님 지시 사용 내역           */}
+          {/* ─────────────────────────────────── */}
+          {chairmanExpenses.length > 0 && (
             <>
               <div className="sc-section-head" style={{ marginTop: '32px' }}>
                 <h2 className="sc-section-title" style={{ color: '#d97706' }}>
-                  ⚡ 2-2. 임원 지시 사용 내역 (한도 외)
+                  👔 2-2. 회장님(회사) 지시 사용 내역 (한도 외)
                 </h2>
               </div>
+              {/* startSeq: 이사 다음 번호부터 이어서 */}
+              {renderGroupTable(
+                orderedChairman, chairmanTotal, '회장님 지시',
+                '#fef3c7', '#92400e', '#f59e0b', '#fef3c7', '#d97706',
+                orderedPersonal.length + 1
+              )}
+            </>
+          )}
 
-              <div className="sc-detail" style={{ border: '2px solid #f59e0b', borderRadius: '12px' }}>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '0.8fr 1.2fr 1fr 1.5fr 1fr 0.9fr',
-                  fontWeight: 600,
-                  padding: '10px 16px',
-                  borderBottom: '1px solid #fcd34d',
-                  background: '#fef3c7',
-                  fontSize: '13px',
-                  color: '#92400e',
-                  borderRadius: '10px 10px 0 0'
-                }}>
-                  <span>일자</span>
-                  <span>구입처</span>
-                  <span>금액</span>
-                  <span>사용목적</span>
-                  <span>비고</span>
-                  <span>지시자</span>
-                </div>
-
-                {renderRows(orderedDirected, true)}
-
-                <div className="sc-detail-sum" style={{ background: '#fef3c7', color: '#92400e' }}>
-                  <span className="sc-detail-sum-label">임원 지시 소계</span>
-                  <span className="sc-detail-sum-value" style={{ color: '#d97706' }}>{won(directedTotal)}</span>
-                </div>
+          {/* ─────────────────────────────────── */}
+          {/* 2-3. 대표님 지시 사용 내역 (노란 박스) */}
+          {/* ─────────────────────────────────── */}
+          {ceoExpenses.length > 0 && (
+            <>
+              <div className="sc-section-head" style={{ marginTop: '32px' }}>
+                <h2 className="sc-section-title" style={{ color: '#854d0e' }}>
+                  🏢 2-3. 대표님 지시 사용 내역 (한도 외)
+                </h2>
+              </div>
+              {/* ★ 대표님 내역: 노란색 박스 테두리 강조 */}
+              <div style={{
+                border: '3px solid #facc15',
+                borderRadius: 14,
+                overflow: 'hidden',
+                boxShadow: '0 0 0 4px #fef9c3'
+              }}>
+                {/* startSeq: 이사 + 회장 다음 번호부터 */}
+                {renderGroupTable(
+                  orderedCeo, ceoTotal, '대표님 지시',
+                  '#fefce8', '#713f12', '#eab308', '#fefce8', '#854d0e',
+                  orderedPersonal.length + orderedChairman.length + 1
+                )}
               </div>
             </>
           )}
+
+          {/* 임원 지시 전체 합산 */}
+          {directedExpenses.length > 0 && (
+            <div style={{
+              marginTop: 24, padding: '12px 16px',
+              background: '#fefce8', border: '1px solid #fde047', borderRadius: 8,
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <span style={{ fontWeight: 600, color: '#713f12', fontSize: 14 }}>
+                ⚡ 임원 지시 합산 ({directedExpenses.length}건)
+              </span>
+              <span style={{ fontWeight: 700, fontSize: 16, color: '#854d0e' }}>{won(directedTotal)}</span>
+            </div>
+          )}
+
+          {/* 사용되지 않는 변수 참조 방지 */}
+          {orderedDirected.length === 0 && null}
 
           {/* 서명 */}
           <div className="sc-sign" style={{ marginTop: '40px', textAlign: 'center', position: 'relative' }}>
@@ -411,6 +611,64 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               </span>
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════ */}
+          {/* 영수증 첨부 (서명 다음 페이지 — 인쇄 시 page-break)   */}
+          {/* ══════════════════════════════════════════════════════ */}
+          {(personalExpensesOrdered.some(e => e.receiptImage) ||
+            chairmanExpensesOrdered.some(e => e.receiptImage) ||
+            ceoExpensesOrdered.some(e => e.receiptImage)) && (
+            <div style={{
+              paddingTop: 40,
+              pageBreakBefore: 'always',
+              borderTop: '3px dashed #cbd5e1',
+              marginTop: 48
+            }}>
+              {/* 별지 헤더 */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24
+              }}>
+                <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                <span style={{
+                  fontSize: 15, fontWeight: 700, color: '#475569',
+                  whiteSpace: 'nowrap', padding: '0 12px'
+                }}>
+                  📎 영수증 첨부 (별지)
+                </span>
+                <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+              </div>
+
+              {/* 이수용 이사 영수증 — 1번부터 */}
+              <ReceiptGrid
+                items={personalExpensesOrdered}
+                groupLabel="이수용 이사"
+                startSeq={1}
+              />
+
+              {/* 회장님 지시 영수증 — 이사 다음 번호 이어서 */}
+              {chairmanExpenses.length > 0 && (
+                <ReceiptGrid
+                  items={chairmanExpensesOrdered}
+                  groupLabel="회장님 지시"
+                  startSeq={orderedPersonal.length + 1}
+                  borderColor="#f59e0b"
+                  bgColor="#fffbeb"
+                />
+              )}
+
+              {/* 대표님 지시 영수증 — 이사 + 회장 다음 번호 이어서 */}
+              {ceoExpenses.length > 0 && (
+                <ReceiptGrid
+                  items={ceoExpensesOrdered}
+                  groupLabel="대표님 지시"
+                  startSeq={orderedPersonal.length + orderedChairman.length + 1}
+                  borderColor="#eab308"
+                  bgColor="#fefce8"
+                />
+              )}
+            </div>
+          )}
+
         </div>
       </div>
     </div>
