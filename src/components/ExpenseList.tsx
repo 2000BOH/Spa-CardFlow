@@ -21,7 +21,7 @@ const deskDate = (d: string) => d.slice(5).replace('-', '. ');
 const directedLabel = (item: ExpenseItem): string | null => {
   const d = getDirectedBy(item);
   if (d === 'ceo') return '🏢 대표 지시';
-  if (d === 'chairman') return '👔 회장 지시';
+  if (d === 'chairman') return '회장 지시';
   return null;
 };
 

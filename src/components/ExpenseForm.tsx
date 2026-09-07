@@ -495,7 +495,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
                 onClick={() => setDirectedBy('chairman')}
                 className={directedBy === 'chairman' ? 'sc-chip sc-chip-directed sc-chip-directed-chairman' : 'sc-chip'}
               >
-                👔 회장님 지시
+                회장님 지시
               </button>
             </div>
             {directedBy !== 'none' && (

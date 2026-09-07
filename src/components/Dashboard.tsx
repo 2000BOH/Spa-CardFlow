@@ -90,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
                 borderRadius: '16px', padding: '3px 10px',
                 fontSize: '0.72rem', color: 'rgba(255,255,255,0.92)',
               }}>
-                <span>👔 회장님 지시</span>
+                <span>회장님 지시</span>
                 <span style={{ fontWeight: 700 }}>{won(summary.chairmanSpend)}</span>
                 <span style={{ opacity: 0.65 }}>· 한도 별도</span>
               </div>
@@ -125,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ summary, count }) => {
             )}
             {hasChairman && (
               <div style={{ fontSize: '0.78rem', color: '#92400e', fontWeight: 600, background: '#fffbeb', padding: '3px 10px', borderRadius: '12px' }}>
-                👔 회장님 지시 {won(summary.chairmanSpend)}
+                회장님 지시 {won(summary.chairmanSpend)}
               </div>
             )}
           </div>

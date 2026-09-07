@@ -169,7 +169,7 @@ const won = (n: number) => '₩' + Math.round(n).toLocaleString('ko-KR');
 const directedLabel = (item: ExpenseItem): string => {
   const d = getDirectedBy(item);
   if (d === 'ceo') return '🏢 대표 지시';
-  if (d === 'chairman') return '👔 회장 지시';
+  if (d === 'chairman') return '회장 지시';
   return '';
 };
 
@@ -521,9 +521,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
           {/* 서명 */}
           <div className="sc-sign" style={{ marginTop: '40px', textAlign: 'center', position: 'relative' }}>
-            <p className="sc-sign-note" style={{ fontSize: '15px', color: '#0f172a', marginBottom: '20px' }}>
-              위 법인카드는 블루오션 웰니스 스파의 투명한 운영을 위해 업무 목적에 적합하게 집행되었습니다.
-            </p>
+
             <div className="sc-sign-date" style={{ fontSize: '15px', marginBottom: '10px' }}>{submitDate}</div>
             <div className="sc-sign-name" style={{ fontSize: '16px', fontWeight: 600, display: 'inline-block' }}>
               이수용 이사{' '}
