@@ -1542,24 +1542,51 @@ textarea.sc-input {
 @media print {
   body {
     background: #ffffff !important;
+    margin: 0;
+    padding: 0;
   }
 
+  /* 모든 요소 숨김 처리 (공간은 유지) */
+  body * {
+    visibility: hidden;
+  }
+
+  /* 보고서 영역과 그 자식들만 보이게 처리 */
+  #printable-report-area, 
+  #printable-report-area * {
+    visibility: visible;
+  }
+
+  /* 보고서 영역을 화면 최상단으로 끌어올림 */
+  #printable-report-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* 출력에 불필요한 버튼/툴바는 아예 공간까지 제거 */
   .sc-no-print,
   .sc-tabbar,
   .sc-header {
     display: none !important;
   }
 
+  /* 모달 오버레이 스타일 제거 */
   .sc-overlay {
-    position: static;
-    background: none;
-    padding: 0;
-    overflow: visible;
+    position: static !important;
+    background: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   .sc-sheet {
-    max-width: none;
-    border-radius: 0;
+    max-width: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
   }
 }
 

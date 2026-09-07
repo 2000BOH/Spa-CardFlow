@@ -148,64 +148,14 @@ export async function exportReportToJPG(elementId: string, filename: string = '�
 }
 
 /**
- * 보고서를 캔버스 이미지로 변환한 뒤 새창에서 인쇄
- * - window.open + document.write 방식 탈피 → 이미지 기반 인쇄로 레이아웃 깨짐 방지
- * - 영수증 이미지, CSS Grid 등 모두 정확하게 인쇄됨
+ * 브라우저 기본 인쇄 기능을 호출하여 보고서 출력 (네이티브 인쇄)
+ * - CSS @media print 설정과 연동되어 다중 페이지(page-break)를 완벽하게 지원합니다.
+ * - 이미지를 통째로 그리는 html2canvas 방식의 단점(다음 페이지 잘림 현상 등)을 해결합니다.
  */
 export async function printReport(elementId: string) {
-  const element = document.getElementById(elementId);
-  if (!element) {
-    alert('보고서 요소를 찾을 수 없습니다.');
-    return;
-  }
-
-  try {
-    const canvas = await captureElement(element);
-    const imgData = canvas.toDataURL('image/png');
-
-    const printWin = window.open('', '_blank');
-    if (!printWin) {
-      alert('팝업이 차단되었습니다.\n팝업 허용 후 다시 시도해주세요.');
-      return;
-    }
-
-    printWin.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>결산 보고서 출력</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { background: #fff; }
-          img {
-            width: 100%;
-            max-width: 100%;
-            display: block;
-          }
-          @media print {
-            body { margin: 0; }
-            img { width: 100%; page-break-inside: avoid; }
-          }
-        </style>
-      </head>
-      <body>
-        <img src="${imgData}" alt="보고서" />
-      </body>
-      </html>
-    `);
-    printWin.document.close();
-    // 이미지 로드 완료 후 인쇄 다이얼로그 열기
-    printWin.onload = () => {
-      setTimeout(() => {
-        printWin.focus();
-        printWin.print();
-      }, 300);
-    };
-  } catch (error) {
-    console.error('Print error:', error);
-    alert('인쇄 준비 중 오류가 발생했습니다.');
-  }
+  // 모달 렌더링 등으로 인해 이미지 로딩이 안 끝났을 수 있으므로 잠시 대기
+  setTimeout(() => {
+    window.print();
+  }, 100);
 }
-
 
