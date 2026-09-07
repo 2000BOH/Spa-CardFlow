@@ -62,8 +62,8 @@ const ReceiptGrid: React.FC<{
       </div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 12,
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 16,
         padding: 16
       }}>
         {withReceipt.map((item, idx) => {
