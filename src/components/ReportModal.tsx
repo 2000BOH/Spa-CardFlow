@@ -524,20 +524,20 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
             <div className="sc-sign-date" style={{ fontSize: '15px', marginBottom: '10px' }}>{submitDate}</div>
             <div className="sc-sign-name" style={{ fontSize: '16px', fontWeight: 600, display: 'inline-block' }}>
-              이수용 이사{' '}
+              보고자 : 이수용{' '}
               <span style={{ position: 'relative', display: 'inline-block' }}>
                 (인)
                 <span style={{
                   position: 'absolute',
-                  top: '-9px',
-                  left: '1px',
-                  fontFamily: '"궁서", "Gungsuh", serif',
-                  fontSize: '28px',
-                  color: 'rgba(71, 85, 105, 0.75)',
-                  transform: 'rotate(-2deg)',
+                  top: '-15px',
+                  left: '-2px',
+                  fontFamily: '"Nanum Pen Script", "궁서", "GungSeo", "Gungsuh", serif',
+                  fontSize: '38px',
+                  color: 'rgba(71, 85, 105, 0.85)',
+                  transform: 'rotate(-5deg)',
                   pointerEvents: 'none',
                   whiteSpace: 'nowrap',
-                  letterSpacing: '3px'
+                  letterSpacing: '1px'
                 }}>
                   이수용
                 </span>
