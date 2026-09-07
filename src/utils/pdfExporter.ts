@@ -71,7 +71,6 @@ export async function exportReportToPDF(elementId: string, filename: string = '�
 
   try {
     const canvas = await captureElement(element);
-    const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF('p', 'mm', 'a4');
 
     const PAGE_W = pdf.internal.pageSize.getWidth();   // 210mm
@@ -152,7 +151,7 @@ export async function exportReportToJPG(elementId: string, filename: string = '�
  * - CSS @media print 설정과 연동되어 다중 페이지(page-break)를 완벽하게 지원합니다.
  * - 이미지를 통째로 그리는 html2canvas 방식의 단점(다음 페이지 잘림 현상 등)을 해결합니다.
  */
-export async function printReport(elementId: string) {
+export async function printReport(_elementId: string) {
   // 모달 렌더링 등으로 인해 이미지 로딩이 안 끝났을 수 있으므로 잠시 대기
   setTimeout(() => {
     window.print();
