@@ -346,7 +346,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
         </div>
         {renderRows(items, true, startSeq)}
         <div className="sc-detail-sum" style={{ background: sumBg, color: sumColor }}>
-          <span className="sc-detail-sum-label">{label} 소계</span>
+          <span className="sc-detail-sum-label">{label}(소계)</span>
           <span className="sc-detail-sum-value" style={{ color: sumColor }}>{won(total)}</span>
         </div>
       </div>
@@ -444,7 +444,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
             {/* ① 이수용 이사 */}
             <div className="sc-meta-row">
-              <div className="sc-meta-total-key">이수용 이사 사용 소계</div>
+              <div className="sc-meta-total-key">이수용 이사 사용(소계)</div>
               <div className="sc-meta-total-val">
                 <span className="num">{won(personalTotal)}</span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>({personalExpenses.length}건 · 한도 {won(summary.monthlyBudget)})</span>
@@ -454,7 +454,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             {/* ② 회장님 지시 */}
             {summary.chairmanSpend > 0 && (
               <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b', borderBottom: '1px solid #fde68a' }}>
-                <div className="sc-meta-total-key" style={{ color: '#d97706', background: 'transparent' }}>회장님 지시</div>
+                <div className="sc-meta-total-key" style={{ color: '#d97706', background: 'transparent' }}>회장님 지시(소계)</div>
                 <div className="sc-meta-total-val">
                   <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
                   <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
@@ -472,7 +472,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 outlineOffset: '-2px',
                 borderRadius: 6
               }}>
-                <div className="sc-meta-total-key" style={{ color: '#854d0e', background: 'transparent' }}>대표님 지시</div>
+                <div className="sc-meta-total-key" style={{ color: '#854d0e', background: 'transparent' }}>대표님 지시(소계)</div>
                 <div className="sc-meta-total-val">
                   <span className="num" style={{ color: '#854d0e' }}>{won(summary.ceoSpend)}</span>
                   <span style={{ fontSize: 13, color: '#a16207' }}>한도 별도</span>
@@ -516,7 +516,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               {/* startSeq=1: 이수용 이사 섹션은 1번부터 시작 */}
               {renderRows(orderedPersonal, false, 1)}
               <div className="sc-detail-sum">
-                <span className="sc-detail-sum-label">이수용 이사 소계</span>
+                <span className="sc-detail-sum-label">이수용 이사 사용(소계)</span>
                 <span className="sc-detail-sum-value">{won(personalTotal)}</span>
               </div>
             </div>
@@ -528,8 +528,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           {chairmanExpenses.length > 0 && (
             <>
               <div className="sc-section-head" style={{ marginTop: '32px' }}>
-                <h2 className="sc-section-title" style={{ color: '#d97706' }}>
-                  👔 2-2. 회장님(회사) 지시 사용 내역 (한도 외)
+                <h2 className="sc-section-title" style={{ color: '#b45309' }}>
+                  2-2. 회장님 지시에 따른 사용 내용
                 </h2>
               </div>
               {/* startSeq: 이사 다음 번호부터 이어서 */}
@@ -548,7 +548,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <>
               <div className="sc-section-head" style={{ marginTop: '32px' }}>
                 <h2 className="sc-section-title" style={{ color: '#854d0e' }}>
-                  🏢 2-3. 대표님 지시 사용 내역 (한도 외)
+                  2-3. 대표님 지시에 따른 사용 내용
                 </h2>
               </div>
               {/* ★ 대표님 내역: 노란색 박스 테두리 강조 */}
@@ -576,7 +576,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               display: 'flex', justifyContent: 'space-between', alignItems: 'center'
             }}>
               <span style={{ fontWeight: 600, color: '#713f12', fontSize: 14 }}>
-                ⚡ 임원 지시 합산 ({directedExpenses.length}건)
+                합산 ({directedExpenses.length}건)
               </span>
               <span style={{ fontWeight: 700, fontSize: 16, color: '#854d0e' }}>{won(directedTotal)}</span>
             </div>
