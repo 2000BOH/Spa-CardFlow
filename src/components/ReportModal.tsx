@@ -531,7 +531,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                   position: 'absolute',
                   top: '-15px',
                   left: '-2px',
-                  fontFamily: '"Nanum Pen Script", "궁서", "GungSeo", "Gungsuh", serif',
+                  fontFamily: '"GungSeo", "궁서", "Gungsuh", "AppleMyungjo", serif',
                   fontSize: '38px',
                   color: 'rgba(71, 85, 105, 0.85)',
                   transform: 'rotate(-5deg)',
