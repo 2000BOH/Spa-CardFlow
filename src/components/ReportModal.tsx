@@ -200,24 +200,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
 
   // ── 그룹 분리: 이사(개인) / 회장 지시 / 대표 지시 순서 ──
   const personalExpenses  = expenses.filter(e => getDirectedBy(e) === 'none');
-  const chairmanExpenses  = expenses.filter(e => getDirectedBy(e) === 'chairman');
-  const ceoExpenses       = expenses.filter(e => getDirectedBy(e) === 'ceo');
   const directedExpenses  = expenses.filter(e => isDirectedExpense(e));
 
   const personalTableData  = tableData.filter(t => t.directedBy === 'none');
-  const chairmanTableData  = tableData.filter(t => t.directedBy === 'chairman');
-  const ceoTableData       = tableData.filter(t => t.directedBy === 'ceo');
   const directedTableData  = tableData.filter(t => t.directedBy !== 'none');
 
   const personalTotal  = personalExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const chairmanTotal  = chairmanExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const ceoTotal       = ceoExpenses.reduce((sum, e) => sum + e.amount, 0);
   const directedTotal  = directedExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // 영수증 그리드용 정렬된 배열
   const personalExpensesOrdered = [...personalExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const chairmanExpensesOrdered = [...chairmanExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const ceoExpensesOrdered      = [...ceoExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
+  const directedExpensesOrdered = [...directedExpenses].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const submitDate = new Date().toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -256,8 +249,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
   };
 
   const orderedPersonal  = [...personalTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const orderedChairman  = [...chairmanTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
-  const orderedCeo       = [...ceoTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
   const orderedDirected  = [...directedTableData].sort((a, b) => (a.date < b.date ? -1 : 1));
 
   const handleTableChange = (id: string, field: string, value: string) => {
@@ -451,31 +442,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               </div>
             </div>
 
-            {/* ② 회장님 지시 */}
-            {summary.chairmanSpend > 0 && (
+            {/* ② 회장님, 대표님 지시 */}
+            {directedTotal > 0 && (
               <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b', borderBottom: '1px solid #fde68a' }}>
-                <div className="sc-meta-total-key" style={{ color: '#d97706', background: 'transparent' }}>회장님 지시(소계)</div>
+                <div className="sc-meta-total-key" style={{ color: '#d97706', background: 'transparent' }}>회장님, 대표님 지시(소계)</div>
                 <div className="sc-meta-total-val">
-                  <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
+                  <span className="num" style={{ color: '#d97706' }}>{won(directedTotal)}</span>
                   <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
-                </div>
-              </div>
-            )}
-
-            {/* ③ 대표님 지시 — 노란색 박스 강조 */}
-            {summary.ceoSpend > 0 && (
-              <div className="sc-meta-row" style={{
-                background: '#fefce8',
-                borderLeft: '4px solid #eab308',
-                borderBottom: '1px solid #fef08a',
-                outline: '2px solid #facc15',
-                outlineOffset: '-2px',
-                borderRadius: 6
-              }}>
-                <div className="sc-meta-total-key" style={{ color: '#854d0e', background: 'transparent' }}>대표님 지시(소계)</div>
-                <div className="sc-meta-total-val">
-                  <span className="num" style={{ color: '#854d0e' }}>{won(summary.ceoSpend)}</span>
-                  <span style={{ fontSize: 13, color: '#a16207' }}>한도 별도</span>
                 </div>
               </div>
             )}
@@ -523,64 +496,25 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           )}
 
           {/* ─────────────────────────────────── */}
-          {/* 2-2. 회장님 지시 사용 내역           */}
+          {/* 2-2. 회장님, 대표님 지시 사용 내역           */}
           {/* ─────────────────────────────────── */}
-          {chairmanExpenses.length > 0 && (
+          {directedExpenses.length > 0 && (
             <>
               <div className="sc-section-head" style={{ marginTop: '32px' }}>
                 <h2 className="sc-section-title" style={{ color: '#b45309' }}>
-                  2-2. 회장님 지시에 따른 사용 내용
+                  2-2. 회장님, 대표님 지시에 따른 사용 내용
                 </h2>
               </div>
               {/* startSeq: 이사 다음 번호부터 이어서 */}
               {renderGroupTable(
-                orderedChairman, chairmanTotal, '회장님 지시',
+                orderedDirected, directedTotal, '회장님, 대표님 지시',
                 '#fef3c7', '#92400e', '#f59e0b', '#fef3c7', '#d97706',
                 orderedPersonal.length + 1
               )}
             </>
           )}
 
-          {/* ─────────────────────────────────── */}
-          {/* 2-3. 대표님 지시 사용 내역 (노란 박스) */}
-          {/* ─────────────────────────────────── */}
-          {ceoExpenses.length > 0 && (
-            <>
-              <div className="sc-section-head" style={{ marginTop: '32px' }}>
-                <h2 className="sc-section-title" style={{ color: '#854d0e' }}>
-                  2-3. 대표님 지시에 따른 사용 내용
-                </h2>
-              </div>
-              {/* ★ 대표님 내역: 노란색 박스 테두리 강조 */}
-              <div style={{
-                border: '3px solid #facc15',
-                borderRadius: 14,
-                overflow: 'hidden',
-                boxShadow: '0 0 0 4px #fef9c3'
-              }}>
-                {/* startSeq: 이사 + 회장 다음 번호부터 */}
-                {renderGroupTable(
-                  orderedCeo, ceoTotal, '대표님 지시',
-                  '#fefce8', '#713f12', '#eab308', '#fefce8', '#854d0e',
-                  orderedPersonal.length + orderedChairman.length + 1
-                )}
-              </div>
-            </>
-          )}
 
-          {/* 임원 지시 전체 합산 */}
-          {directedExpenses.length > 0 && (
-            <div style={{
-              marginTop: 24, padding: '12px 16px',
-              background: '#fefce8', border: '1px solid #fde047', borderRadius: 8,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: 600, color: '#713f12', fontSize: 14 }}>
-                합산 ({directedExpenses.length}건)
-              </span>
-              <span style={{ fontWeight: 700, fontSize: 16, color: '#854d0e' }}>{won(directedTotal)}</span>
-            </div>
-          )}
 
           {/* 사용되지 않는 변수 참조 방지 */}
           {orderedDirected.length === 0 && null}
@@ -617,8 +551,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           {/* 영수증 첨부 (서명 다음 페이지 — 인쇄 시 page-break)   */}
           {/* ══════════════════════════════════════════════════════ */}
           {(personalExpensesOrdered.some(e => e.receiptImage) ||
-            chairmanExpensesOrdered.some(e => e.receiptImage) ||
-            ceoExpensesOrdered.some(e => e.receiptImage)) && (
+            directedExpensesOrdered.some(e => e.receiptImage)) && (
             <div style={{
               paddingTop: 40,
               pageBreakBefore: 'always',
@@ -646,25 +579,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 startSeq={1}
               />
 
-              {/* 회장님 지시 영수증 — 이사 다음 번호 이어서 */}
-              {chairmanExpenses.length > 0 && (
+              {/* 회장님, 대표님 지시 영수증 — 이사 다음 번호 이어서 */}
+              {directedExpenses.length > 0 && (
                 <ReceiptGrid
-                  items={chairmanExpensesOrdered}
-                  groupLabel="회장님 지시"
+                  items={directedExpensesOrdered}
+                  groupLabel="회장님, 대표님 지시"
                   startSeq={orderedPersonal.length + 1}
                   borderColor="#f59e0b"
                   bgColor="#fffbeb"
-                />
-              )}
-
-              {/* 대표님 지시 영수증 — 이사 + 회장 다음 번호 이어서 */}
-              {ceoExpenses.length > 0 && (
-                <ReceiptGrid
-                  items={ceoExpensesOrdered}
-                  groupLabel="대표님 지시"
-                  startSeq={orderedPersonal.length + orderedChairman.length + 1}
-                  borderColor="#eab308"
-                  bgColor="#fefce8"
                 />
               )}
             </div>
