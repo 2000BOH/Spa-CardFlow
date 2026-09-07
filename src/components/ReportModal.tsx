@@ -529,10 +529,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 (인)
                 <span style={{
                   position: 'absolute',
-                  top: '-15px',
-                  left: '-2px',
-                  fontFamily: '"GungSeo", "궁서", "Gungsuh", "AppleMyungjo", serif',
-                  fontSize: '38px',
+                  top: '-18px',
+                  left: '-4px',
+                  fontFamily: '"Nanum Brush Script", "GungSeo", "궁서", "Gungsuh", cursive',
+                  fontSize: '44px',
                   color: 'rgba(71, 85, 105, 0.85)',
                   transform: 'rotate(-5deg)',
                   pointerEvents: 'none',
