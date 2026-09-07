@@ -454,7 +454,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             {/* ② 회장님 지시 */}
             {summary.chairmanSpend > 0 && (
               <div className="sc-meta-row" style={{ background: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
-                <div className="sc-meta-total-key" style={{ color: '#d97706' }}>👔 회장님 지시 소계</div>
+                <div className="sc-meta-total-key" style={{ color: '#d97706', background: 'transparent' }}>👔 회장님 지시 소계</div>
                 <div className="sc-meta-total-val">
                   <span className="num" style={{ color: '#d97706' }}>{won(summary.chairmanSpend)}</span>
                   <span style={{ fontSize: 13, color: '#b45309' }}>한도 별도</span>
@@ -471,7 +471,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
                 outlineOffset: '-2px',
                 borderRadius: 6
               }}>
-                <div className="sc-meta-total-key" style={{ color: '#854d0e' }}>🏢 대표님 지시 소계</div>
+                <div className="sc-meta-total-key" style={{ color: '#854d0e', background: 'transparent' }}>🏢 대표님 지시 소계</div>
                 <div className="sc-meta-total-val">
                   <span className="num" style={{ color: '#854d0e' }}>{won(summary.ceoSpend)}</span>
                   <span style={{ fontSize: 13, color: '#a16207' }}>한도 별도</span>

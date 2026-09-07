@@ -1022,7 +1022,7 @@ textarea.sc-input {
 
 .sc-meta-row {
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   border-bottom: 1px solid var(--line-soft);
 }
 
