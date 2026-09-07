@@ -1022,7 +1022,7 @@ textarea.sc-input {
 
 .sc-meta-row {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -1278,6 +1278,11 @@ textarea.sc-input {
 
   .sc-only-desktop {
     display: revert !important;
+  }
+
+  /* 버튼에 sc-only-desktop이 붙으면 display: inline-flex 유지 */
+  .sc-btn.sc-only-desktop {
+    display: inline-flex !important;
   }
 
   .sc-only-mobile {
