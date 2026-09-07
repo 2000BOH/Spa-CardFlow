@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({ title, subtitle, onOpenReport, r
             onClick={onOpenReport}
             className="sc-btn sc-btn-primary sc-only-desktop"
             style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
+              display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '8px',
               whiteSpace: 'nowrap',
               fontSize: '1rem',
               padding: '12px 22px',
