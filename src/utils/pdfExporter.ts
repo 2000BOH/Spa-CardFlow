@@ -57,13 +57,23 @@ async function captureElement(element: HTMLElement): Promise<HTMLCanvasElement> 
   return canvas;
 }
 
+/** 오늘 날짜 기준 기본 파일명 생성 (예: 법인카드_5947_결산보고서_2026.09.15.pdf) */
+function getDefaultFilename(ext: 'pdf' | 'jpg'): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `법인카드_5947_결산보고서_${yyyy}.${mm}.${dd}.${ext}`;
+}
+
 /**
  * 보고서 DOM 요소를 PDF 파일로 내보내기
  * - A4 여러 페이지에 걸쳐 전체 내용 출력
  * - 영수증 이미지 포함, 툴바 제외
  * - JPEG 80% 압축 적용으로 용량을 95% 이상 감량 (40~50MB -> 1~2MB)
  */
-export async function exportReportToPDF(elementId: string, filename: string = '법인카드_5947_결산보고서.pdf') {
+export async function exportReportToPDF(elementId: string, filename?: string) {
+  const finalFilename = filename || getDefaultFilename('pdf');
   const element = document.getElementById(elementId);
   if (!element) {
     alert('보고서 요소를 찾을 수 없습니다.');
@@ -118,7 +128,7 @@ export async function exportReportToPDF(elementId: string, filename: string = '�
       pageNum++;
     }
 
-    pdf.save(filename);
+    pdf.save(finalFilename);
   } catch (error) {
     console.error('PDF generation error:', error);
     alert('PDF 생성 중 오류가 발생했습니다.\n브라우저 인쇄(PDF로 저장)를 이용해주세요.');
@@ -130,7 +140,8 @@ export async function exportReportToPDF(elementId: string, filename: string = '�
  * - 툴바 숨기고 전체 내용 캡처
  * - 영수증 이미지 포함
  */
-export async function exportReportToJPG(elementId: string, filename: string = '법인카드_사용결산보고서.jpg') {
+export async function exportReportToJPG(elementId: string, filename?: string) {
+  const finalFilename = filename || getDefaultFilename('jpg');
   const element = document.getElementById(elementId);
   if (!element) {
     alert('보고서 요소를 찾을 수 없습니다.');
@@ -141,7 +152,7 @@ export async function exportReportToJPG(elementId: string, filename: string = '�
     const canvas = await captureElement(element);
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const link = document.createElement('a');
-    link.download = filename;
+    link.download = finalFilename;
     link.href = imgData;
     document.body.appendChild(link);
     link.click();

@@ -196,6 +196,19 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses]);
 
+  // 모달이 열려 있을 때 문서 제목(document.title)을 변경하여
+  // 브라우저 '프린트 출력(PDF로 저장)' 시에도 파일명이 자동으로 '법인카드_5947_결산보고서_YYYY.MM.DD.pdf'가 되도록 설정
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevTitle = document.title;
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    document.title = `법인카드_5947_결산보고서_${dateStr}`;
+    return () => {
+      document.title = prevTitle;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // ── 그룹 분리: 이사(개인) / 회장 지시 / 대표 지시 순서 ──
