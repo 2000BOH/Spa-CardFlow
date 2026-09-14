@@ -114,8 +114,9 @@ export function App() {
         setExpenses((prev) => [created, ...prev]);
       }
       if (!isDesktop) setTab('list');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save failed:', err);
+      alert(`저장에 실패했습니다.\n원인: ${err?.message || '서버 연결 오류'}\n\nVercel 환경변수(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)가 설정되어 있는지 확인해주세요.`);
     }
   };
 

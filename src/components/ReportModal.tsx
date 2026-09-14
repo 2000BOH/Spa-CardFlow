@@ -364,12 +364,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
               style={{ background: '#0284c7' }}
-              onClick={() =>
+              onClick={() => {
+                const d = new Date();
+                const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
                 exportReportToJPG(
                   'printable-report-area',
-                  `SpaCardFlow_결산보고서_${summary.closingDateStr}.jpg`
-                )
-              }
+                  `법인카드_5947_결산보고서_${dateStr}.jpg`
+                );
+              }}
             >
               <ImageIcon size={16} strokeWidth={1.9} />
               JPG 저장
@@ -377,12 +379,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
-              onClick={() =>
+              onClick={() => {
+                const d = new Date();
+                const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
                 exportReportToPDF(
                   'printable-report-area',
-                  `SpaCardFlow_결산보고서_${summary.closingDateStr}.pdf`
-                )
-              }
+                  `법인카드_5947_결산보고서_${dateStr}.pdf`
+                );
+              }}
             >
               <Download size={16} strokeWidth={1.9} />
               PDF 저장

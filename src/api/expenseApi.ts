@@ -206,9 +206,11 @@ export async function updateExpense(id: string, item: Partial<Omit<ExpenseItem, 
     if (item.receiptImage !== undefined) payload.receipt_image_url = item.receiptImage;
     if (item.directedBy !== undefined) payload.directed_by = item.directedBy;
 
-    await supabase.from('cardflow_expenses').update(payload).eq('id', id);
-  } catch (err) {
-    console.warn('서버 수정 실패. 오프라인 모드에서는 수정이 유지됩니다.');
+    const { error } = await supabase.from('cardflow_expenses').update(payload).eq('id', id);
+    if (error) throw error;
+  } catch (err: any) {
+    console.warn('서버 수정 실패:', err?.message || err);
+    throw err;
   }
 }
 
