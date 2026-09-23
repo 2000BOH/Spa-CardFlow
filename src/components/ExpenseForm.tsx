@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ExpenseCategory, ExpenseItem, DirectedBy } from '../types/expense';
 import { parseRealReceiptImage } from '../utils/ocrParser';
-import { uploadReceiptImage } from '../api/expenseApi';
+import { uploadReceiptImage, fetchReceiptImage } from '../api/expenseApi';
 import { Camera, Info, Loader2, Trash2 } from 'lucide-react';
 
 import * as pdfjsLib from 'pdfjs-dist';
@@ -73,10 +73,22 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setCategory(editingItem.category);
     setPurpose(editingItem.purpose);
     setNote(editingItem.note ?? '');
-    setReceiptImage(editingItem.receiptImage ?? '');
     setReceiptFile(null);
     setDirectedBy(editingItem.directedBy ?? 'none');
     setNotice(null);
+
+    // 영수증 이미지: 로컬 데이터는 이미 보유, 서버 데이터는 lazy load
+    if (editingItem.receiptImage) {
+      setReceiptImage(editingItem.receiptImage);
+    } else {
+      setReceiptImage('');
+      // 서버에서 영수증 이미지 비동기 로딩
+      if (!editingItem.id.startsWith('local_')) {
+        fetchReceiptImage(editingItem.id).then(url => {
+          if (url) setReceiptImage(url);
+        }).catch(() => { /* 실패 시 영수증 없음 상태 유지 */ });
+      }
+    }
   }, [editingItem]);
 
   useEffect(() => {

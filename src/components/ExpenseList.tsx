@@ -28,7 +28,10 @@ const directedLabel = (item: ExpenseItem): string | null => {
 interface ExpenseListProps {
   expenses: ExpenseItem[];
   onEditExpense: (expense: ExpenseItem) => void;
-  onViewReceipt: (imageUrl: string, title: string) => void;
+  /** 영수증 보기: ExpenseItem을 전달하면 App에서 lazy load 처리 */
+  onViewReceipt: (item: ExpenseItem) => void;
+  /** 서버 데이터의 영수증 존재 여부 맵 (id → boolean) */
+  receiptMap?: Record<string, boolean>;
   limit?: number;
   showFilters?: boolean;
   title?: string;
@@ -40,6 +43,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   expenses,
   onEditExpense,
   onViewReceipt,
+  receiptMap = {},
   limit,
   showFilters = true,
   title = '결제 내역',
@@ -151,21 +155,27 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           {shown.map((item) => {
             const directed = isDirectedExpense(item);
             const badge = directedLabel(item);
+            // 영수증 존재 여부: 로컬 데이터는 receiptImage 보유, 서버 데이터는 receiptMap으로 확인
+            const hasReceipt = item.receiptImage ? true : receiptMap[item.id] === true;
             return (
             <div key={item.id} className={`sc-row${directed ? ' sc-row-directed' : ''}`}>
-              {/* 영수증 썸네일 — 누르면 원본, 없으면 수정 */}
+              {/* 영수증 썸네일 — 영수증이 있으면 클릭 시 lazy load, 없으면 수정 */}
               <button
                 type="button"
                 className="sc-thumb"
-                aria-label={item.receiptImage ? '영수증 원본 보기' : '내역 수정'}
+                aria-label={hasReceipt ? '영수증 원본 보기' : '내역 수정'}
                 onClick={() =>
-                  item.receiptImage
-                    ? onViewReceipt(item.receiptImage, `${item.storeName} 영수증`)
+                  hasReceipt
+                    ? onViewReceipt(item)
                     : onEditExpense(item)
                 }
               >
-                {item.receiptImage ? (
-                  <img src={item.receiptImage} alt="" />
+                {hasReceipt ? (
+                  item.receiptImage ? (
+                    <img src={item.receiptImage} alt="" />
+                  ) : (
+                    <Receipt size={18} strokeWidth={1.6} style={{ color: 'var(--primary)' }} />
+                  )
                 ) : (
                   <Store size={18} strokeWidth={1.6} />
                 )}

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ExpenseItem } from './types/expense';
 import { calculateBudgetSummary } from './utils/storage';
-import { fetchExpenses, createExpense, updateExpense, deleteExpense } from './api/expenseApi';
+import { fetchExpenses, createExpense, updateExpense, deleteExpense, fetchReceiptImage, checkReceiptExists } from './api/expenseApi';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
@@ -47,12 +47,20 @@ export function App() {
   const [receipt, setReceipt] = useState({ open: false, url: '', title: '' });
 
   // 월별 결산 필터 상태 (기본값: 현재 결산월)
+  /**
+   * 결산월 계산: 매월 15일에 결산. 16일 이후 거래는 다음 달 결산으로 분류.
+   * 예) 9/1~9/15 → 9월 결산, 9/16~10/15 → 10월 결산
+   */
   const getReportMonth = (dateStr: string) => {
+    // 날짜 문자열이 없거나 유효하지 않으면 현재 날짜 기준으로 처리
+    if (!dateStr) return getReportMonth(new Date().toISOString());
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return getReportMonth(new Date().toISOString());
     let year = d.getFullYear();
     let month = d.getMonth() + 1;
     const day = d.getDate();
-    if (day >= 15) {
+    // 16일 이후부터 다음 달 결산 (15일 당일은 이번 달 결산에 포함)
+    if (day > 15) {
        month += 1;
        if (month > 12) { month = 1; year += 1; }
     }
@@ -81,22 +89,78 @@ export function App() {
     if (curYear > 2100) break; // 무한루프 방지
   }
 
+  // 영수증 존재 여부 맵 (id → boolean)
+  const [receiptMap, setReceiptMap] = useState<Record<string, boolean>>({});
+
+  // 폴링 에러 백오프를 위한 ref
+  const errorCountRef = useRef(0);
+  const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 데이터 로드 + 영수증 존재여부 확인
+   * 에러 시 폴링 간격을 점진적으로 늘려 DB 부하 방지
+   * "나왔다 사라졌다" 방지: 에러 시 기존 화면 데이터를 그대로 유지
+   */
+  const isFirstLoadRef = useRef(true);
+
   useEffect(() => {
+    let isMounted = true;
+
     const load = async () => {
       try {
         const loaded = await fetchExpenses();
+        if (!isMounted) return;
         setExpenses(loaded);
+        errorCountRef.current = 0; // 성공 시 에러 카운트 초기화
+        isFirstLoadRef.current = false;
+
+        // 영수증 존재여부 확인 (실패해도 데이터 표시에 영향 없음)
+        try {
+          const serverIds = loaded.filter(e => !e.id.startsWith('local_')).map(e => e.id);
+          if (serverIds.length > 0) {
+            const existsMap = await checkReceiptExists(serverIds);
+            if (isMounted) {
+              setReceiptMap(prev => ({ ...prev, ...existsMap }));
+            }
+          }
+        } catch {
+          // 영수증 존재여부 확인 실패는 무시 (핵심 데이터와 무관)
+        }
       } catch (err) {
         console.error('Failed to load data:', err);
+        if (isMounted) {
+          errorCountRef.current += 1;
+
+          // ⚠️ 첫 로드 실패 시에만 로컬 캐시 데이터로 fallback
+          // 이후 폴링 에러 시에는 기존 화면 데이터를 그대로 유지 → "나왔다 사라졌다" 방지
+          if (isFirstLoadRef.current) {
+            const LOCAL_KEY = 'blue_ocean_card_expenses_v2';
+            try {
+              const cached = localStorage.getItem(LOCAL_KEY);
+              if (cached) setExpenses(JSON.parse(cached));
+            } catch { /* 로컬 캐시도 없으면 빈 화면 유지 */ }
+            isFirstLoadRef.current = false;
+          }
+        }
+      }
+
+      // 다음 폴링 스케줄 (Supabase 연결 시에만)
+      if (isMounted && isSupabaseConfigured) {
+        // 에러 횟수에 따라 폴링 간격 증가: 10초 → 30초 → 60초, 3회 이상 연속 실패 시 폴링 중단
+        if (errorCountRef.current >= 3) {
+          console.warn('[폴링 중단] 연속 3회 실패. 페이지 새로고침으로 재시도하세요.');
+          return;
+        }
+        const delay = errorCountRef.current === 0 ? 10000 : errorCountRef.current === 1 ? 30000 : 60000;
+        pollingTimerRef.current = setTimeout(load, delay);
       }
     };
     load();
 
-    // Supabase가 올바르게 연결되었을 때만 10초 주기 실시간 폴링 (오프라인 모드 데이터 유실 방지)
-    if (isSupabaseConfigured) {
-      const interval = setInterval(load, 10000);
-      return () => clearInterval(interval);
-    }
+    return () => {
+      isMounted = false;
+      if (pollingTimerRef.current) clearTimeout(pollingTimerRef.current);
+    };
   }, []);
 
   const summary = calculateBudgetSummary(filteredExpenses);
@@ -137,7 +201,33 @@ export function App() {
     if (!isDesktop) setTab('add');
   };
 
-  const viewReceipt = (url: string, title: string) => setReceipt({ open: true, url, title });
+  /**
+   * 영수증 보기 핸들러 (Lazy Load)
+   * 리스트 조회 시에는 이미지를 가져오지 않으므로,
+   * 클릭 시점에 서버에서 개별 로딩합니다.
+   */
+  const viewReceipt = async (itemOrUrl: string | ExpenseItem, title?: string) => {
+    // 문자열이면 이미 URL/Base64가 있는 경우 (로컬 데이터 등)
+    if (typeof itemOrUrl === 'string' && itemOrUrl) {
+      setReceipt({ open: true, url: itemOrUrl, title: title || '영수증' });
+      return;
+    }
+
+    // ExpenseItem 객체면 서버에서 lazy load
+    const item = itemOrUrl as ExpenseItem;
+    setReceipt({ open: true, url: '', title: `${item.storeName} 영수증 로딩 중...` });
+
+    try {
+      const imageUrl = await fetchReceiptImage(item.id);
+      if (imageUrl) {
+        setReceipt({ open: true, url: imageUrl, title: `${item.storeName} 영수증` });
+      } else {
+        setReceipt({ open: true, url: '', title: '영수증 이미지를 찾을 수 없습니다' });
+      }
+    } catch {
+      setReceipt({ open: true, url: '', title: '영수증 로딩 실패' });
+    }
+  };
 
   const openReport = useCallback(() => {
     setIsReportOpen(true);
@@ -201,6 +291,7 @@ export function App() {
             expenses={filteredExpenses}
             onEditExpense={handleEdit}
             onViewReceipt={viewReceipt}
+            receiptMap={receiptMap}
           />
           <div className="sc-aside">
             <ExpenseForm
@@ -293,6 +384,7 @@ export function App() {
               expenses={filteredExpenses}
               onEditExpense={handleEdit}
               onViewReceipt={viewReceipt}
+              receiptMap={receiptMap}
               limit={4}
               showFilters={false}
               title="최근 내역"
@@ -309,10 +401,12 @@ export function App() {
 
       {tab === 'list' && (
         <div className="sc-page" style={{ paddingTop: 18 }}>
+          {/* filteredExpenses: 선택된 결산월에 해당하는 내역만 표시 */}
           <ExpenseList
-            expenses={expenses}
+            expenses={filteredExpenses}
             onEditExpense={handleEdit}
             onViewReceipt={viewReceipt}
+            receiptMap={receiptMap}
             onRequestAdd={() => setTab('add')}
           />
         </div>
