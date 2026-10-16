@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { ExpenseItem, BudgetSummary } from '../types/expense';
 import { isDirectedExpense, getDirectedBy } from '../types/expense';
 import { exportReportToPDF, exportReportToJPG, printReport } from '../utils/pdfExporter';
 import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
+import { fetchReceiptImage } from '../api/expenseApi';
 
 /** 영수증 이미지의 가로세로 비율을 판단해서 landscape 여부를 반환 */
 function isLandscapeImage(src: string): Promise<boolean> {
@@ -66,9 +67,9 @@ const ReceiptGrid: React.FC<{
         gap: 16,
         padding: 16
       }}>
-        {withReceipt.map((item, idx) => {
+        {withReceipt.map((item) => {
           const isLand = landscapeMap[item.id] ?? false;
-          const seqNum = startSeq + idx; // 전체 문서 기준 순번
+          const seqNum = startSeq + items.indexOf(item); // 표의 No.와 동일한 순번 (영수증 없는 내역 포함해서 계산)
           return (
             <div
               key={item.id}
@@ -176,6 +177,48 @@ const directedLabel = (item: ExpenseItem): string => {
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expenses, summary }) => {
   const [editing, setEditing] = useState(false);
 
+  // ── 영수증 이미지 지연 로딩 ──
+  // 목록 조회(fetchExpenses)는 DB 타임아웃 방지를 위해 receipt_image_url 을 가져오지 않으므로
+  // 보고서를 열 때 영수증이 있는 내역의 이미지를 개별로 불러와 별지에 채운다.
+  const receiptCache = useRef<Record<string, string>>({});
+  const [receiptMap, setReceiptMap] = useState<Record<string, string>>({});
+  const [receiptLoading, setReceiptLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let alive = true;
+    const need = expenses.filter(e => !e.receiptImage && !receiptCache.current[e.id]);
+    if (need.length === 0) return;
+
+    (async () => {
+      setReceiptLoading(true);
+      try {
+        // 동시 요청 3개씩 (큰 Base64 데이터라 DB 부하/타임아웃 방지)
+        const queue = [...need];
+        const worker = async () => {
+          while (queue.length > 0) {
+            const item = queue.shift();
+            if (!item) break;
+            const img = await fetchReceiptImage(item.id);
+            if (img) receiptCache.current[item.id] = img;
+          }
+        };
+        await Promise.all([worker(), worker(), worker()]);
+        if (alive) setReceiptMap({ ...receiptCache.current });
+      } finally {
+        if (alive) setReceiptLoading(false);
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [isOpen, expenses]);
+
+  // 목록 데이터 + 불러온 영수증 이미지 합치기 (금액/건수 계산에는 영향 없음)
+  const expensesWithReceipts = useMemo(
+    () => expenses.map(e => (e.receiptImage ? e : { ...e, receiptImage: receiptMap[e.id] || e.receiptImage })),
+    [expenses, receiptMap]
+  );
+
   // expenses 가 변경될 때마다 tableData 재동기화
   const buildTableData = (exps: ExpenseItem[]) =>
     exps.map(e => ({
@@ -212,8 +255,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
   if (!isOpen) return null;
 
   // ── 그룹 분리: 이사(개인) / 회장 지시 / 대표 지시 순서 ──
-  const personalExpenses  = expenses.filter(e => getDirectedBy(e) === 'none');
-  const directedExpenses  = expenses.filter(e => isDirectedExpense(e));
+  const personalExpenses  = expensesWithReceipts.filter(e => getDirectedBy(e) === 'none');
+  const directedExpenses  = expensesWithReceipts.filter(e => isDirectedExpense(e));
 
   const personalTableData  = tableData.filter(t => t.directedBy === 'none');
   const directedTableData  = tableData.filter(t => t.directedBy !== 'none');
@@ -364,10 +407,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
         {/* 툴바 */}
         <div className="sc-sheet-bar sc-no-print" style={{ justifyContent: 'flex-end' }}>
           <div className="sc-sheet-actions">
+            {receiptLoading && (
+              <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center', marginRight: 4 }}>
+                영수증 불러오는 중...
+              </span>
+            )}
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
-              style={{ background: '#10b981' }}
+              style={{ background: '#10b981', opacity: receiptLoading ? 0.5 : 1 }}
+              disabled={receiptLoading}
               onClick={() => printReport('printable-report-area')}
             >
               <Printer size={16} strokeWidth={1.9} />
@@ -376,7 +425,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
-              style={{ background: '#0284c7' }}
+              style={{ background: '#0284c7', opacity: receiptLoading ? 0.5 : 1 }}
+              disabled={receiptLoading}
               onClick={() => {
                 const d = new Date();
                 const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
@@ -392,6 +442,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
             <button
               type="button"
               className="sc-btn sc-btn-primary sc-btn-sm"
+              style={{ opacity: receiptLoading ? 0.5 : 1 }}
+              disabled={receiptLoading}
               onClick={() => {
                 const d = new Date();
                 const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
