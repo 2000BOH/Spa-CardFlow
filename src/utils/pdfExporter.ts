@@ -6,7 +6,10 @@ import jsPDF from 'jspdf';
  * 캡처 후 복원하는 헬퍼.
  * → 툴바, 편집 버튼 등이 출력물에 포함되지 않도록 함
  */
-async function captureElement(element: HTMLElement): Promise<HTMLCanvasElement> {
+async function captureElement(
+  element: HTMLElement,
+  extraHidden: HTMLElement[] = []
+): Promise<HTMLCanvasElement> {
   // ── 1. 모든 img 태그가 완전히 로드될 때까지 대기 ──
   // 영수증 이미지가 html2canvas에 포함되지 않는 주요 원인 해결
   const imgs = Array.from(element.querySelectorAll('img')) as HTMLImageElement[];
@@ -22,9 +25,10 @@ async function captureElement(element: HTMLElement): Promise<HTMLCanvasElement> 
   );
 
   // ── 2. 숨길 대상 수집 (sc-no-print) ──
-  const noPrintEls = Array.from(
-    element.querySelectorAll('.sc-no-print')
-  ) as HTMLElement[];
+  const noPrintEls = [
+    ...(Array.from(element.querySelectorAll('.sc-no-print')) as HTMLElement[]),
+    ...extraHidden   // 예: PDF에서 별도 페이지로 따로 찍을 영수증 별지
+  ];
 
   // 임시 숨김 처리
   noPrintEls.forEach(el => {
@@ -57,6 +61,30 @@ async function captureElement(element: HTMLElement): Promise<HTMLCanvasElement> 
   return canvas;
 }
 
+/** 요소 하나만 캡처 (영수증 별지 한 장 단위) */
+async function captureNode(node: HTMLElement): Promise<HTMLCanvasElement> {
+  const imgs = Array.from(node.querySelectorAll('img')) as HTMLImageElement[];
+  await Promise.all(
+    imgs.map(img =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>(resolve => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          })
+    )
+  );
+  return html2canvas(node, {
+    scale: 1.5,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+    scrollX: 0,
+    scrollY: 0,
+  });
+}
+
 /** 오늘 날짜 기준 기본 파일명 생성 (예: 법인카드_5947_결산보고서_2026.09.15.pdf) */
 function getDefaultFilename(ext: 'pdf' | 'jpg'): string {
   const d = new Date();
@@ -81,7 +109,6 @@ export async function exportReportToPDF(elementId: string, filename?: string) {
   }
 
   try {
-    const canvas = await captureElement(element);
     const pdf = new jsPDF('p', 'mm', 'a4');
 
     const PAGE_W = pdf.internal.pageSize.getWidth();   // 210mm
@@ -89,6 +116,14 @@ export async function exportReportToPDF(elementId: string, filename?: string) {
     const MARGIN = 10; // mm
 
     const printW = PAGE_W - MARGIN * 2;
+    const pageContentH = PAGE_H - MARGIN * 2;
+
+    // ── 1. 보고서 본문 (영수증 별지는 제외하고 캡처) ──
+    const receiptPages = Array.from(
+      element.querySelectorAll('.receipt-page')
+    ) as HTMLElement[];
+    const canvas = await captureElement(element, receiptPages);
+
     // 캔버스 비율에 맞춰 실제 출력 높이 계산
     const totalPrintH = (canvas.height / canvas.width) * printW;
 
@@ -96,8 +131,6 @@ export async function exportReportToPDF(elementId: string, filename?: string) {
     let srcY = 0;               // 캔버스에서 자를 y 시작 위치(px)
     let pageNum = 0;
 
-    // 한 페이지에 들어갈 출력 높이(mm)
-    const pageContentH = PAGE_H - MARGIN * 2;
     // 한 페이지에 해당하는 캔버스 픽셀 높이
     const pageCanvasH = (pageContentH / printW) * canvas.width;
 
@@ -126,6 +159,23 @@ export async function exportReportToPDF(elementId: string, filename?: string) {
       srcY += sliceH;
       remainH -= pageContentH;
       pageNum++;
+    }
+
+    // ── 2. 영수증 별지: 한 장(.receipt-page, 영수증 4건)을 PDF 한 페이지로 ──
+    // 본문처럼 이어서 자르지 않고 페이지 단위로 통째로 넣어서 영수증이 잘리지 않음
+    for (const node of receiptPages) {
+      const rc = await captureNode(node);
+      pdf.addPage();
+
+      const ratio = rc.width / rc.height;
+      let w = printW;
+      let h = w / ratio;
+      if (h > pageContentH) {
+        h = pageContentH;
+        w = h * ratio;
+      }
+      const x = (PAGE_W - w) / 2;
+      pdf.addImage(rc.toDataURL('image/jpeg', 0.85), 'JPEG', x, MARGIN, w, h, undefined, 'FAST');
     }
 
     pdf.save(finalFilename);
