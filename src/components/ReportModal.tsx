@@ -5,22 +5,15 @@ import { exportReportToPDF, exportReportToJPG, printReport } from '../utils/pdfE
 import { Download, Image as ImageIcon, Printer, X } from 'lucide-react';
 import { fetchReceiptImage } from '../api/expenseApi';
 
-/** 영수증 이미지의 가로세로 비율을 판단해서 landscape 여부를 반환 */
-function isLandscapeImage(src: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img.naturalWidth > img.naturalHeight * 1.3);
-    img.onerror = () => resolve(false);
-    img.src = src;
-  });
-}
-
 /**
- * 영수증 그리드 섹션
- * - 세로 영수증: 3열 그리드(한 행에 3장)
- * - 가로 영수증(landscape): colspan 2 (왼쪽 2칸 차지)
- * - 좌상단 원형 번호 배지
+ * 영수증 별지 (A4 한 장 = 영수증 최대 4장, 2 x 2 배치)
+ * - 한 장(.receipt-page)에 4건씩 끊어서 배치 → 영수증이 페이지 경계에서 잘리지 않음
+ * - 각 칸 안에서 영수증 이미지는 object-fit: contain 으로 전체가 보이게 맞춤
+ * - PDF 저장 시 .receipt-page 하나가 PDF 한 페이지가 됨 (pdfExporter 참고)
+ * - 좌상단 원형 번호 배지 = 표의 No.
  */
+const RECEIPTS_PER_PAGE = 4;
+
 const ReceiptGrid: React.FC<{
   items: ExpenseItem[];
   groupLabel: string;
@@ -29,130 +22,141 @@ const ReceiptGrid: React.FC<{
   bgColor?: string;
 }> = ({ items, groupLabel, startSeq, borderColor, bgColor }) => {
   const withReceipt = items.filter(i => i.receiptImage);
-  const [landscapeMap, setLandscapeMap] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    let alive = true;
-    withReceipt.forEach(async (item) => {
-      if (!item.receiptImage) return;
-      const isLand = await isLandscapeImage(item.receiptImage);
-      if (alive) setLandscapeMap(prev => ({ ...prev, [item.id]: isLand }));
-    });
-    return () => { alive = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [withReceipt.map(i => i.id).join(',')]);
-
   if (withReceipt.length === 0) return null;
 
+  const pages: ExpenseItem[][] = [];
+  for (let i = 0; i < withReceipt.length; i += RECEIPTS_PER_PAGE) {
+    pages.push(withReceipt.slice(i, i + RECEIPTS_PER_PAGE));
+  }
+
   return (
-    <div style={{
-      marginTop: 24,
-      border: borderColor ? `2px solid ${borderColor}` : '1px solid #e2e8f0',
-      borderRadius: 12,
-      overflow: 'hidden',
-      background: bgColor || '#fff'
-    }}>
-      <div style={{
-        padding: '10px 16px',
-        background: borderColor ? bgColor || '#fef3c7' : '#f8fafc',
-        borderBottom: `1px solid ${borderColor || '#e2e8f0'}`,
-        fontWeight: 700, fontSize: 14,
-        color: borderColor ? '#92400e' : '#475569'
-      }}>
-        📎 {groupLabel} — 영수증 첨부 ({withReceipt.length}건)
-      </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 16,
-        padding: 16
-      }}>
-        {withReceipt.map((item) => {
-          const isLand = landscapeMap[item.id] ?? false;
-          const seqNum = startSeq + items.indexOf(item); // 표의 No.와 동일한 순번 (영수증 없는 내역 포함해서 계산)
-          return (
-            <div
-              key={item.id}
-              style={{
-                gridColumn: isLand ? 'span 2' : 'span 1',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                overflow: 'hidden',
-                background: '#fff',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                position: 'relative'
-              }}
-            >
-              {/* 쾐션: 상호명 + 일자 + 금액 */}
-              <div style={{
-                padding: '6px 10px',
-                background: '#f1f5f9',
-                fontSize: 11,
-                color: '#475569',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
-                  {item.storeName}
-                </span>
-                <span>{item.date} · {'₩' + Math.round(item.amount).toLocaleString('ko-KR')}</span>
-              </div>
-
-              {/* 영수증 이미지 (좌상단 순번 배지 포함) */}
-              <div style={{
-                width: '100%',
-                maxHeight: isLand ? 260 : 400,
-                overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                background: '#f8fafc',
-                position: 'relative'
-              }}>
-                <img
-                  src={item.receiptImage!}
-                  alt={`${item.storeName} 영수증`}
+    <>
+      {pages.map((pageItems, pageIdx) => (
+        <div
+          key={pageIdx}
+          className="receipt-page"
+          style={{
+            aspectRatio: '190 / 262',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            marginTop: 24,
+            border: borderColor ? `2px solid ${borderColor}` : '1px solid #e2e8f0',
+            borderRadius: 12,
+            overflow: 'hidden',
+            background: bgColor || '#fff'
+          }}
+        >
+          <div style={{
+            flexShrink: 0,
+            padding: '10px 16px',
+            background: borderColor ? bgColor || '#fef3c7' : '#f8fafc',
+            borderBottom: `1px solid ${borderColor || '#e2e8f0'}`,
+            fontWeight: 700, fontSize: 14,
+            color: borderColor ? '#92400e' : '#475569',
+            display: 'flex',
+            justifyContent: 'space-between'
+          }}>
+            <span>📎 영수증 첨부 (별지) — {groupLabel} ({withReceipt.length}건)</span>
+            <span style={{ fontWeight: 600, fontSize: 12 }}>{pageIdx + 1} / {pages.length}</span>
+          </div>
+          <div style={{
+            flex: 1,
+            minHeight: 0,
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateRows: '1fr 1fr',
+            gap: 12,
+            padding: 12
+          }}>
+            {pageItems.map((item) => {
+              const seqNum = startSeq + items.indexOf(item); // 표의 No.와 동일한 순번
+              return (
+                <div
+                  key={item.id}
                   style={{
-                    width: '100%',
-                    height: isLand ? 260 : undefined,
-                    maxHeight: isLand ? 260 : 400,
-                    objectFit: isLand ? 'cover' : 'contain',
-                    display: 'block'
+                    minHeight: 0,
+                    minWidth: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    background: '#fff'
                   }}
-                />
-                {/* 좌상단 원형 순번 배지 */}
-                <div style={{
-                  position: 'absolute',
-                  top: 8,
-                  left: 8,
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: borderColor || '#475569',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
-                  lineHeight: 1,
-                  zIndex: 1
-                }}>
-                  {seqNum}
-                </div>
-              </div>
+                >
+                  {/* 캡션: 상호명 + 일자 + 금액 */}
+                  <div style={{
+                    flexShrink: 0,
+                    padding: '6px 10px',
+                    background: '#f1f5f9',
+                    fontSize: 11,
+                    color: '#475569',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 6
+                  }}>
+                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
+                      {item.storeName}
+                    </span>
+                    <span style={{ whiteSpace: 'nowrap' }}>{item.date} · {'₩' + Math.round(item.amount).toLocaleString('ko-KR')}</span>
+                  </div>
 
-              {/* 사용 목적 */}
-              <div style={{ padding: '5px 10px', fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9' }}>
-                {item.purpose || item.items || '-'}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                  {/* 영수증 이미지 (칸 안에 전체가 보이도록 contain) */}
+                  <div style={{
+                    flex: 1,
+                    minHeight: 0,
+                    position: 'relative',
+                    background: '#f8fafc'
+                  }}>
+                    <img
+                      src={item.receiptImage!}
+                      alt={`${item.storeName} 영수증`}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                        display: 'block'
+                      }}
+                    />
+                    {/* 좌상단 원형 순번 배지 */}
+                    <div style={{
+                      position: 'absolute',
+                      top: 8,
+                      left: 8,
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: borderColor || '#475569',
+                      color: '#fff',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                      lineHeight: 1,
+                      zIndex: 1
+                    }}>
+                      {seqNum}
+                    </div>
+                  </div>
+
+                  {/* 사용 목적 */}
+                  <div style={{ flexShrink: 0, padding: '5px 10px', fontSize: 11, color: '#64748b', borderTop: '1px solid #f1f5f9' }}>
+                    {item.purpose || item.items || '-'}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
   );
 };
 
@@ -615,29 +619,24 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
           </div>
 
           {/* ══════════════════════════════════════════════════════ */}
-          {/* 영수증 첨부 (서명 다음 페이지 — 인쇄 시 page-break)   */}
+          {/* 영수증 첨부 (별지) — A4 한 장당 4건, 인쇄/PDF 모두 한 장씩 분리 */}
           {/* ══════════════════════════════════════════════════════ */}
           {(personalExpensesOrdered.some(e => e.receiptImage) ||
             directedExpensesOrdered.some(e => e.receiptImage)) && (
-            <div style={{
-              paddingTop: 40,
-              pageBreakBefore: 'always',
-              borderTop: '3px dashed #cbd5e1',
-              marginTop: 48
-            }}>
-              {/* 별지 헤더 */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24
-              }}>
-                <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
-                <span style={{
-                  fontSize: 15, fontWeight: 700, color: '#475569',
-                  whiteSpace: 'nowrap', padding: '0 12px'
-                }}>
-                  📎 영수증 첨부 (별지)
-                </span>
-                <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
-              </div>
+            <div>
+              <style>{`
+                @media print {
+                  .receipt-page {
+                    aspect-ratio: auto !important;
+                    height: 262mm !important;
+                    margin: 0 !important;
+                    break-before: page;
+                    page-break-before: always;
+                    break-inside: avoid;
+                    page-break-inside: avoid;
+                  }
+                }
+              `}</style>
 
               {/* 이수용 이사 영수증 — 1번부터 */}
               <ReceiptGrid
