@@ -97,7 +97,7 @@ const ReceiptGrid: React.FC<{
                     alignItems: 'center',
                     gap: 6
                   }}>
-                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
+                    <span style={{ fontWeight: 600, minWidth: 0, wordBreak: 'break-all', lineHeight: 1.3 }}>
                       {item.storeName}
                     </span>
                     <span style={{ whiteSpace: 'nowrap' }}>{item.date} · {'₩' + Math.round(item.amount).toLocaleString('ko-KR')}</span>
