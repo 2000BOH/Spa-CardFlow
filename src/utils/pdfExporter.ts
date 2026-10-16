@@ -134,6 +134,24 @@ export async function exportReportToPDF(elementId: string, filename?: string) {
     // 한 페이지에 해당하는 캔버스 픽셀 높이
     const pageCanvasH = (pageContentH / printW) * canvas.width;
 
+    // 본문이 한 페이지를 살짝(25% 이내) 넘기면 서명만 다음 장으로 넘어가지 않도록 한 장에 맞춰 축소
+    if (totalPrintH > pageContentH && totalPrintH <= pageContentH * 1.25) {
+      const k = pageContentH / totalPrintH;
+      const fitW = printW * k;
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.8),
+        'JPEG',
+        MARGIN + (printW - fitW) / 2,
+        MARGIN,
+        fitW,
+        pageContentH,
+        undefined,
+        'FAST'
+      );
+      remainH = 0;
+      pageNum = 1;
+    }
+
     while (remainH > 0) {
       if (pageNum > 0) pdf.addPage();
 
