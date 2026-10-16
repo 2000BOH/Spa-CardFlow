@@ -184,43 +184,49 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, expen
   // ── 영수증 이미지 지연 로딩 ──
   // 목록 조회(fetchExpenses)는 DB 타임아웃 방지를 위해 receipt_image_url 을 가져오지 않으므로
   // 보고서를 열 때 영수증이 있는 내역의 이미지를 개별로 불러와 별지에 채운다.
-  const receiptCache = useRef<Record<string, string>>({});
-  const [receiptMap, setReceiptMap] = useState<Record<string, string>>({});
-  const [receiptLoading, setReceiptLoading] = useState(false);
+  // ※ 앱이 주기적으로 목록을 다시 받아와 expenses 배열 참조가 계속 바뀌므로,
+  //   effect 의존성은 "id 목록 문자열"로 고정하고 진행 상태는 ref 로 관리한다 (재시작/중복 요청 방지).
+  const receiptCache = useRef<Record<string, string>>({});   // id -> 이미지 ('' = 영수증 없음/조회 실패)
+  const receiptInflight = useRef<Set<string>>(new Set());    // 요청 진행 중인 id
+  const [receiptVersion, setReceiptVersion] = useState(0);   // 캐시가 채워질 때마다 리렌더용
+  const idsKey = expenses.map(e => e.id).join(',');
 
   useEffect(() => {
     if (!isOpen) return;
-    let alive = true;
-    const need = expenses.filter(e => !e.receiptImage && !receiptCache.current[e.id]);
-    if (need.length === 0) return;
+    const queue = expenses
+      .filter(e => !e.receiptImage && !(e.id in receiptCache.current) && !receiptInflight.current.has(e.id))
+      .map(e => e.id);
+    if (queue.length === 0) return;
+    queue.forEach(id => receiptInflight.current.add(id));
 
-    (async () => {
-      setReceiptLoading(true);
-      try {
-        // 동시 요청 3개씩 (큰 Base64 데이터라 DB 부하/타임아웃 방지)
-        const queue = [...need];
-        const worker = async () => {
-          while (queue.length > 0) {
-            const item = queue.shift();
-            if (!item) break;
-            const img = await fetchReceiptImage(item.id);
-            if (img) receiptCache.current[item.id] = img;
-          }
-        };
-        await Promise.all([worker(), worker(), worker()]);
-        if (alive) setReceiptMap({ ...receiptCache.current });
-      } finally {
-        if (alive) setReceiptLoading(false);
+    // 동시 요청 3개씩 (큰 Base64 데이터라 DB 부하/타임아웃 방지)
+    const worker = async () => {
+      while (queue.length > 0) {
+        const id = queue.shift();
+        if (!id) break;
+        let img = '';
+        try {
+          img = await fetchReceiptImage(id);
+        } catch {
+          img = '';
+        }
+        receiptCache.current[id] = img;
+        receiptInflight.current.delete(id);
+        setReceiptVersion(v => v + 1);
       }
-    })();
+    };
+    void Promise.all([worker(), worker(), worker()]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, idsKey]);
 
-    return () => { alive = false; };
-  }, [isOpen, expenses]);
+  // 아직 영수증을 불러오지 못한 내역이 있으면 로딩 중
+  const receiptLoading = isOpen && expenses.some(e => !e.receiptImage && !(e.id in receiptCache.current));
 
   // 목록 데이터 + 불러온 영수증 이미지 합치기 (금액/건수 계산에는 영향 없음)
   const expensesWithReceipts = useMemo(
-    () => expenses.map(e => (e.receiptImage ? e : { ...e, receiptImage: receiptMap[e.id] || e.receiptImage })),
-    [expenses, receiptMap]
+    () => expenses.map(e => (e.receiptImage ? e : { ...e, receiptImage: receiptCache.current[e.id] || e.receiptImage })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [expenses, receiptVersion]
   );
 
   // expenses 가 변경될 때마다 tableData 재동기화
