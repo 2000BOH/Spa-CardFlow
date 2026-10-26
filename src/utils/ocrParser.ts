@@ -209,7 +209,7 @@ function inferCategoryAndPurpose(text: string): {
 async function parseReceiptWithAi(imageUrl: string): Promise<ParsedResult | null> {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     const r = await fetch('/api/receipt-ocr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

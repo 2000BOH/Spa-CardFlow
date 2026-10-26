@@ -12,8 +12,8 @@ const CATEGORIES = [
   '기타/일반지출',
 ];
 
-// 기본 모델이 없거나 바뀌었을 때 순서대로 시도
-const FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.5-flash'];
+// 순서대로 시도: 모델 이름이 없거나(404) 응답이 늦으면(시간 초과) 다음 모델로
+const FALLBACK_MODELS = ['gemini-flash-lite-latest', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-2.5-flash'];
 
 const USD_TO_KRW = 1350; // 기존 OCR 로직과 같은 기준환율
 
@@ -52,7 +52,7 @@ const RESPONSE_SCHEMA = {
   required: ['storeName', 'date', 'time', 'items', 'quantity', 'totalAmount', 'supplyAmount', 'vatAmount', 'currency', 'category', 'purpose'],
 };
 
-const CALL_TIMEOUT_MS = 25000;
+const CALL_TIMEOUT_MS = 20000;
 
 async function callGemini(model, apiKey, mimeType, base64, useThinkingConfig) {
   const generationConfig = {
@@ -79,10 +79,10 @@ async function callGemini(model, apiKey, mimeType, base64, useThinkingConfig) {
     );
     const body = await r.json().catch(() => ({}));
     console.log(`[gemini] model=${model} thinkingConfig=${useThinkingConfig} status=${r.status} ${Date.now() - started}ms`);
-    return { status: r.status, body };
+    return { status: r.status, body, ms: Date.now() - started };
   } catch (err) {
     console.log(`[gemini] model=${model} 실패 ${Date.now() - started}ms: ${err?.name} ${err?.message}`);
-    return { status: err?.name === 'TimeoutError' ? 504 : 502, body: { error: { message: `Gemini 응답 없음 (${err?.name})` } } };
+    return { status: err?.name === 'TimeoutError' ? 504 : 502, body: { error: { message: `Gemini 응답 없음 (${err?.name})` } }, ms: Date.now() - started };
   }
 }
 
@@ -111,18 +111,20 @@ export default async function handler(req, res) {
 
   const models = [process.env.GEMINI_MODEL, ...FALLBACK_MODELS].filter(Boolean);
   let last = { status: 500, body: {} };
+  const tries = []; // 모델별 결과/소요시간 (응답에 포함해 원인 파악용)
   for (const model of [...new Set(models)]) {
     last = await callGemini(model, apiKey, mimeType, base64, true);
     // 모델이 thinkingConfig를 지원하지 않으면 빼고 다시 시도
     if (last.status === 400 && /thinking/i.test(last.body?.error?.message || '')) {
       last = await callGemini(model, apiKey, mimeType, base64, false);
     }
-    if (last.status !== 404) break; // 모델 이름이 없을 때만 다음 모델 시도
+    tries.push({ model, status: last.status, ms: last.ms });
+    if (last.status !== 404 && last.status !== 504) break;
   }
 
   if (last.status !== 200) {
     const msg = last.body?.error?.message || 'Gemini 호출 실패';
-    return res.status(last.status === 429 ? 429 : 502).json({ error: msg });
+    return res.status(last.status === 429 ? 429 : 502).json({ error: msg, tries });
   }
 
   const text = last.body?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
@@ -147,5 +149,6 @@ export default async function handler(req, res) {
     category: CATEGORIES.includes(p.category) ? p.category : '기타/일반지출',
     purpose: String(p.purpose || '').trim(),
     isDollar,
+    tries,
   });
 }
