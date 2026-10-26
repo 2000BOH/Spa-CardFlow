@@ -1,0 +1,12 @@
+{
+  "name": "Spa CardFlow - 블루오션 웰니스 스파 법인카드 정산",
+  "short_name": "카드플로우",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0052ff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
