@@ -114,8 +114,8 @@ export default async function handler(req, res) {
   const tries = []; // 모델별 결과/소요시간 (응답에 포함해 원인 파악용)
   for (const model of [...new Set(models)]) {
     last = await callGemini(model, apiKey, mimeType, base64, true);
-    // 모델이 thinkingConfig를 지원하지 않으면 빼고 다시 시도
-    if (last.status === 400 && /thinking/i.test(last.body?.error?.message || '')) {
+    // 모델이 thinkingConfig를 지원하지 않으면(400) 빼고 다시 시도
+    if (last.status === 400) {
       last = await callGemini(model, apiKey, mimeType, base64, false);
     }
     tries.push({ model, status: last.status, ms: last.ms });
