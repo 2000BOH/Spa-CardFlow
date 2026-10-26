@@ -52,24 +52,38 @@ const RESPONSE_SCHEMA = {
   required: ['storeName', 'date', 'time', 'items', 'quantity', 'totalAmount', 'supplyAmount', 'vatAmount', 'currency', 'category', 'purpose'],
 };
 
-async function callGemini(model, apiKey, mimeType, base64) {
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: base64 } }, { text: PROMPT }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: 'application/json',
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
-    }
-  );
-  const body = await r.json().catch(() => ({}));
-  return { status: r.status, body };
+const CALL_TIMEOUT_MS = 25000;
+
+async function callGemini(model, apiKey, mimeType, base64, useThinkingConfig) {
+  const generationConfig = {
+    temperature: 0,
+    responseMimeType: 'application/json',
+    responseSchema: RESPONSE_SCHEMA,
+  };
+  // 영수증 읽기는 깊은 추론이 필요 없으므로 생각(thinking) 단계를 최소화해 응답 속도 확보
+  if (useThinkingConfig) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+
+  const started = Date.now();
+  try {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: base64 } }, { text: PROMPT }] }],
+          generationConfig,
+        }),
+        signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+      }
+    );
+    const body = await r.json().catch(() => ({}));
+    console.log(`[gemini] model=${model} thinkingConfig=${useThinkingConfig} status=${r.status} ${Date.now() - started}ms`);
+    return { status: r.status, body };
+  } catch (err) {
+    console.log(`[gemini] model=${model} 실패 ${Date.now() - started}ms: ${err?.name} ${err?.message}`);
+    return { status: err?.name === 'TimeoutError' ? 504 : 502, body: { error: { message: `Gemini 응답 없음 (${err?.name})` } } };
+  }
 }
 
 /** AI가 공급가액을 합계로 잘못 고른 경우 등을 검산으로 바로잡음 */
@@ -98,7 +112,11 @@ export default async function handler(req, res) {
   const models = [process.env.GEMINI_MODEL, ...FALLBACK_MODELS].filter(Boolean);
   let last = { status: 500, body: {} };
   for (const model of [...new Set(models)]) {
-    last = await callGemini(model, apiKey, mimeType, base64);
+    last = await callGemini(model, apiKey, mimeType, base64, true);
+    // 모델이 thinkingConfig를 지원하지 않으면 빼고 다시 시도
+    if (last.status === 400 && /thinking/i.test(last.body?.error?.message || '')) {
+      last = await callGemini(model, apiKey, mimeType, base64, false);
+    }
     if (last.status !== 404) break; // 모델 이름이 없을 때만 다음 모델 시도
   }
 
