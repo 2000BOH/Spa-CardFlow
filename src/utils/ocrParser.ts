@@ -203,11 +203,62 @@ function inferCategoryAndPurpose(text: string): {
 }
 
 /**
+ * Gemini AI 영수증 인식 (/api/receipt-ocr 서버 함수 호출)
+ * 키 미설정, 한도 초과, 네트워크 오류 등 실패 시 null → Tesseract로 대체
+ */
+async function parseReceiptWithAi(imageUrl: string): Promise<ParsedResult | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    const r = await fetch('/api/receipt-ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: imageUrl }),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    if (!r.ok) {
+      console.warn('[AI 인식 실패]', r.status, await r.text().catch(() => ''));
+      return null;
+    }
+    const p = await r.json();
+    if (!p || (!p.amount && !p.storeName)) return null;
+
+    return {
+      storeName: p.storeName || '',
+      date: p.date || getTodayStr(),
+      time: p.time || getCurrentTimeStr(),
+      items: p.items || '',
+      quantity: p.quantity || 1,
+      amount: p.amount || 0,
+      category: p.category || '기타/일반지출',
+      purpose: p.purpose || '',
+      note: p.isDollar
+        ? 'Gemini AI 인식 (달러→원화 환산, 기준환율 1,350원)'
+        : 'Gemini AI 인식',
+    };
+  } catch (err) {
+    console.warn('[AI 인식 오류]', err);
+    return null;
+  }
+}
+
+/**
+ * 영수증 이미지 인식
+ * 1순위: Gemini AI (컬러 원본 이미지 사용, aiImageUrl)
+ * 2순위: Tesseract.js OCR (흑백 처리 이미지 사용, imageUrl)
+ */
+export async function parseRealReceiptImage(imageUrl: string, aiImageUrl?: string): Promise<ParsedResult> {
+  const aiResult = await parseReceiptWithAi(aiImageUrl ?? imageUrl);
+  if (aiResult) return aiResult;
+  return parseReceiptWithTesseract(imageUrl);
+}
+
+/**
  * Tesseract.js 기반 영수증 이미지 OCR 파싱
  * - 달러 감지 시 원화 자동 환산
  * - 키워드 기반 카테고리/품목/목적 스마트 자동 추론
  */
-export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedResult> {
+async function parseReceiptWithTesseract(imageUrl: string): Promise<ParsedResult> {
   const defaultResult: ParsedResult = {
     storeName: '',
     date: getTodayStr(),
@@ -242,11 +293,21 @@ export async function parseRealReceiptImage(imageUrl: string): Promise<ParsedRes
     let isDollar = amount > 0;
 
     if (!isDollar) {
-      // --- B. 원화 금액 탐색 (멀티라인 허용) ---
-      // 한국 영수증 모든 키워드: 합계, 결제요금, 승인금액, 받을금액, 결제금액, Total Fare 등
-      const amountRegex = /(?:합\s*계|결\s*제|금\s*액|승\s*인|청\s*구|받\s*을|총\s*액|영\s*수|과\s*세|승\s*차|t\s*o\s*t\s*a\s*l|a\s*m\s*o\s*u\s*n\s*t|f\s*a\s*r\s*e)[\s\S]{0,50}?([\d]{1,3}(?:,\d{3})+)/i;
+      // --- B. 원화 금액 탐색 ---
+      // 1순위: 최종 결제금액 키워드 (합계, 받을금액, 결제금액, 승인금액 등) 중 가장 큰 값
+      //        과세물품가액·공급가액·부가세는 세전/세액이므로 제외
+      const totalRegex = /(?:합\s*계|받\s*을\s*금\s*액|결\s*제\s*금\s*액|승\s*인\s*금\s*액|청\s*구\s*금\s*액|총\s*액|승\s*차\s*요\s*금|t\s*o\s*t\s*a\s*l|f\s*a\s*r\s*e)[^\d]{0,20}([\d]{1,3}(?:,\d{3})+)/gi;
+      let totalMax = 0;
+      for (const tm of text.matchAll(totalRegex)) {
+        const n = parseInt(tm[1].replace(/,/g, ''), 10);
+        if (n > totalMax) totalMax = n;
+      }
+      // 2순위: 일반 금액 키워드 (세전 금액 키워드 제외)
+      const amountRegex = /(?:결\s*제|금\s*액|승\s*인|청\s*구|받\s*을|영\s*수|a\s*m\s*o\s*u\s*n\s*t)[^\d]{0,20}([\d]{1,3}(?:,\d{3})+)/i;
       const amountMatch = text.match(amountRegex);
-      if (amountMatch) {
+      if (totalMax > 0) {
+        amount = totalMax;
+      } else if (amountMatch) {
         amount = parseInt(amountMatch[1].replace(/,/g, ''), 10);
       } else {
         // 키워드 없으면 콤마 포함된 가장 큰 숫자 추정

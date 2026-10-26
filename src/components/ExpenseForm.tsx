@@ -113,11 +113,11 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
     setNotice(null);
   };
 
-  const processOcr = async (ocrDataUrl: string) => {
+  const processOcr = async (ocrDataUrl: string, aiDataUrl?: string) => {
     setIsOcr(true);
     setNotice('영수증 텍스트를 자동 분석 중입니다…');
     try {
-      const parsed = await parseRealReceiptImage(ocrDataUrl);
+      const parsed = await parseRealReceiptImage(ocrDataUrl, aiDataUrl);
 
       // 인식된 값이 있을 때만 덮어쓰기 (공란은 사용자가 직접 입력)
       if (parsed.amount > 0) setAmount(String(parsed.amount));
@@ -132,6 +132,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
       }
 
       const isDollar = parsed.note?.includes('달러→원화');
+      const engine = parsed.note?.includes('Gemini') ? 'AI 인식' : '기본 인식';
       const filledFields = [
         parsed.storeName ? '구입처' : '',
         parsed.amount > 0 ? `금액${isDollar ? '(달러→원화 환산)' : ''}` : '',
@@ -142,7 +143,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
       setNotice(
         filledFields
-          ? `✨ 자동 인식 완료! [${filledFields}] 항목이 채워졌습니다. 나머지는 직접 확인해 주세요.`
+          ? `✨ 자동 인식 완료(${engine})! [${filledFields}] 항목이 채워졌습니다. 나머지는 직접 확인해 주세요.`
           : '💡 영수증 문자가 불명확하여 일부 항목만 인식되었습니다. 직접 확인해 주세요.'
       );
     } catch {
@@ -212,6 +213,14 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
 
         ctx.drawImage(img, 0, 0, w, h);
 
+        // AI 인식용: 흑백 처리 전 컬러 원본 (긴 영수증 글씨가 뭉개지지 않도록 최대 2000px)
+        const aiCanvas = document.createElement('canvas');
+        const aiScale = Math.min(1, 2000 / Math.max(img.width, img.height));
+        aiCanvas.width = Math.round(img.width * aiScale);
+        aiCanvas.height = Math.round(img.height * aiScale);
+        aiCanvas.getContext('2d')?.drawImage(img, 0, 0, aiCanvas.width, aiCanvas.height);
+        const aiDataUrl = aiCanvas.toDataURL('image/jpeg', 0.85);
+
         const imgData = ctx.getImageData(0, 0, w, h);
         const data = imgData.data;
         for (let i = 0; i < data.length; i += 4) {
@@ -224,7 +233,7 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({
         ctx.putImageData(imgData, 0, 0);
 
         const ocrDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        await processOcr(ocrDataUrl);
+        await processOcr(ocrDataUrl, aiDataUrl);
       };
       img.src = rawUrl;
     };
